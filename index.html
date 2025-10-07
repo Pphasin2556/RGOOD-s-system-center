@@ -678,5 +678,107 @@
     const el=document.getElementById('eventTime'); if(el) el.value = now.toISOString().slice(0,16);
   })();
 </script>
+  <!-- ==== EASY MODE ADD-ON (วางก่อน </body>) ==== -->
+<style>
+  /* ปรับสเกลองค์รวมด้วยตัวแปร --scale */
+  html{ font-size: calc(16px * var(--scale, 1)); }
+  /* โหมดดูง่าย: เพิ่มพื้นที่และขนาดคลิก */
+  body.easy-mode .item{ padding:20px }
+  body.easy-mode input, body.easy-mode select, body.easy-mode textarea, body.easy-mode .btn{
+    font-size:1.1rem; padding:14px 16px;
+  }
+  body.easy-mode .tab{ font-size:1rem }
+  body.easy-mode label{ font-size:1rem }
+  body.easy-mode .pill{ font-size:1rem; padding:6px 10px }
+
+  /* คอนทราสต์สูง */
+  body.hc-mode{ color:#fff; background:#000 }
+  body.hc-mode .card{ background:#000; border-color:#fff }
+  body.hc-mode input, body.hc-mode select, body.hc-mode textarea{ background:#000; color:#fff; border-color:#fff }
+  body.hc-mode .btn{ background:#000; color:#fff; border-color:#fff }
+  body.hc-mode .tab{ border-color:#fff; color:#fff }
+  body.hc-mode .plan-canvas{ background:#000; border-color:#fff }
+  body.hc-mode .item{ background:#000; border-color:#fff }
+</style>
+
+<script>
+(function(){
+  // ===== แทรกปุ่มควบคุมไว้ที่ header แบบอัตโนมัติ =====
+  const header = document.querySelector('header');
+  if(header){
+    const controls = document.createElement('div');
+    controls.className = 'row';
+    controls.style.marginLeft = 'auto';
+    controls.innerHTML = `
+      <button class="btn" id="btnEasy">โหมดดูง่าย</button>
+      <button class="btn" id="btnHC">คอนทราสต์สูง</button>
+      <div class="row" style="gap:6px">
+        <button class="btn" id="Aminus" title="ตัวอักษรเล็กลง">A−</button>
+        <button class="btn" id="Aplus"  title="ตัวอักษรใหญ่ขึ้น">A+</button>
+      </div>
+    `;
+    header.appendChild(controls);
+  }
+
+  // ===== จำค่าโหมดในเครื่อง =====
+  let scale = parseFloat(localStorage.getItem('UI_SCALE') || '1') || 1;
+  document.documentElement.style.setProperty('--scale', scale);
+  if(localStorage.getItem('EASY_MODE')) document.body.classList.add('easy-mode');
+  if(localStorage.getItem('HC_MODE'))   document.body.classList.add('hc-mode');
+
+  // ===== ปุ่มกดโหมดต่าง ๆ =====
+  const btnEasy = document.getElementById('btnEasy');
+  const btnHC   = document.getElementById('btnHC');
+  const Aminus  = document.getElementById('Aminus');
+  const Aplus   = document.getElementById('Aplus');
+
+  btnEasy && (btnEasy.onclick = ()=>{
+    document.body.classList.toggle('easy-mode');
+    localStorage.setItem('EASY_MODE', document.body.classList.contains('easy-mode') ? '1' : '');
+  });
+  btnHC && (btnHC.onclick = ()=>{
+    document.body.classList.toggle('hc-mode');
+    localStorage.setItem('HC_MODE', document.body.classList.contains('hc-mode') ? '1' : '');
+  });
+  Aplus && (Aplus.onclick = ()=>{
+    scale = Math.min(1.8, scale + 0.1);
+    document.documentElement.style.setProperty('--scale', scale);
+    localStorage.setItem('UI_SCALE', scale);
+  });
+  Aminus && (Aminus.onclick = ()=>{
+    scale = Math.max(0.9, scale - 0.1);
+    document.documentElement.style.setProperty('--scale', scale);
+    localStorage.setItem('UI_SCALE', scale);
+  });
+
+  // ===== ปรับวันที่ให้อ่านสบายตาเมื่ออยู่ในโหมดดูง่าย =====
+  const months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  window.formatThaiDT = function(dtStr){
+    const d = new Date(dtStr); if(isNaN(d)) return '';
+    const day = d.getDate();
+    const month = months[d.getMonth()];
+    const year = d.getFullYear() + 543;
+    const hh = String(d.getHours()).padStart(2,'0');
+    const mm = String(d.getMinutes()).padStart(2,'0');
+    if(document.body.classList.contains('easy-mode')){
+      return `${day} ${month} ${year} เวลา ${hh}:${mm} น.`;
+    }
+    return `${String(day).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${year} ${hh}:${mm}`;
+  };
+
+  // ===== แทนที่ป้ายสถานะให้มีอีโมจิและคำไทยชัด ๆ =====
+  window.statusPill = function(status){
+    const mapCls = {done:'status-done', doing:'status-doing', blocked:'status-blocked', pending:'status-pending'};
+    const mapTxt = {done:'เสร็จแล้ว', doing:'กำลังทำ', blocked:'ติดปัญหา', pending:'รอดำเนินการ'};
+    const mapEmoji = {done:'✅', doing:'🟡', blocked:'🔴', pending:'🟡'};
+    const label = mapTxt[status] || status;
+    const em = mapEmoji[status] || '';
+    const showEmoji = document.body.classList.contains('easy-mode');
+    return `<span class="pill ${mapCls[status]||'status-doing'}">${showEmoji ? (em+' '+label) : label}</span>`;
+  };
+})();
+</script>
+<!-- ==== /EASY MODE ADD-ON ==== -->
+
 </body>
 </html>
