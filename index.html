@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Daily Timeline — Internal Only (RBAC)</title>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#0f172a; --card:#111827; --ink:#e5e7eb; --muted:#9ca3af; --border:#1f2937; --accent:#22d3ee;
+    --ok:#10b981; --warn:#f59e0b; --err:#ef4444; --doing:#f59e0b; --blocked:#ef4444; --pending:#f59e0b; --done:#10b981;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:linear-gradient(180deg,#0b1224,#0f172a); color:var(--ink); font-family:'Prompt',system-ui;}
+  .wrap{max-width:1200px; margin:24px auto; padding:0 16px}
+  header{display:flex; align-items:center; gap:12px; margin-bottom:16px}
+  h1{font-size:24px; margin:0}
+  .card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:16px; box-shadow:0 8px 24px rgba(0,0,0,.25)}
+  .grid{display:grid; gap:12px}
+  .two{grid-template-columns:1fr 1fr}
+  label{font-size:13px; color:var(--muted)}
+  input, textarea, select{width:100%; background:#0b1220; color:var(--ink); border:1px solid var(--border); border-radius:10px; padding:10px 12px}
+  textarea{min-height:90px}
+  .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+  .btn{background:#0b1220; border:1px solid var(--border); color:var(--ink); padding:10px 14px; border-radius:10px; cursor:pointer}
+  .btn:hover{border-color:#334155}
+  .btn.primary{background:var(--accent); color:#05202b; border-color:transparent; font-weight:700}
+  .tabbar{display:flex; gap:8px; margin:10px 0 16px}
+  .tab{cursor:pointer; padding:10px 14px; border-radius:10px; border:1px solid var(--border); color:var(--muted)}
+  .tab.active{border-color:var(--accent); color:var(--ink)}
+  .pill{display:inline-block; padding:4px 8px; border-radius:999px; font-size:12px; font-weight:600}
+  .status-done{background:rgba(16,185,129,.12); color:var(--done);}
+  .status-doing{background:rgba(245,158,11,.12); color:var(--doing);}
+  .status-blocked{background:rgba(239,68,68,.12); color:var(--blocked);}
+  .status-pending{background:rgba(245,158,11,.12); color:var(--pending)}
+  .timeline{display:grid; gap:12px}
+  .item{display:grid; gap:8px; padding:14px; border:1px solid var(--border); border-radius:12px; background:#0b1220}
+  .item-head{display:flex; justify-content:space-between; gap:12px}
+  .item-meta{font-size:12px; color:var(--muted)}
+  .img{max-height:240px; width:100%; object-fit:cover; border-radius:10px; border:1px solid var(--border)}
+  .filters{display:grid; gap:10px}
+  .filters.two{grid-template-columns:repeat(2,1fr)}
+  .right{margin-left:auto}
+  .hint{font-size:12px; color:var(--muted)}
+  .danger{color:var(--err)}
+  .success{color:var(--ok)}
+  /* Plan view */
+  .plan-rows{display:grid; gap:8px}
+  .plan-row{display:grid; grid-template-columns:280px 1fr; gap:12px}
+  .plan-label{font-size:13px; color:var(--ink)}
+  .plan-canvas{position:relative; height:36px; border:1px solid var(--border); border-radius:10px; background:#0b1220; overflow:hidden}
+  .bar{position:absolute; top:6px; height:24px; border-radius:8px; border:1px solid rgba(255,255,255,.12)}
+  .bar.done{background:rgba(16,185,129,.25);}
+  .bar.doing,.bar.pending{background:rgba(245,158,11,.25)}
+  .bar.blocked{background:rgba(239,68,68,.25)}
+  .plan-axis{display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin:4px 0 8px}
+  .legend{display:flex; gap:10px; align-items:center; font-size:12px; color:var(--muted)}
+  .legend span{display:inline-block; width:10px; height:10px; border-radius:3px}
+  .lg-done{background:var(--done)} .lg-doing{background:var(--warn)} .lg-blocked{background:var(--err)}
+  @media (max-width:900px){ .two{grid-template-columns:1fr} .filters.two{grid-template-columns:1fr} .plan-row{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Daily Timeline — Internal Only (RBAC)</h1>
+    <div class="right hint">เฉพาะพนักงานที่ล็อกอิน (Supabase Auth) — admin/staff</div>
+  </header>
+
+  <!-- Auth Card -->
+  <div id="authCard" class="card">
+    <div class="grid two">
+      <div>
+        <label>Supabase URL</label>
+        <input id="sb-url" placeholder="https://xxxxx.supabase.co">
+      </div>
+      <div>
+        <label>Supabase Anon Key</label>
+        <input id="sb-key" placeholder="ey...">
+      </div>
+    </div>
+    <div class="grid two" style="margin-top:10px">
+      <div>
+        <label>อีเมลพนักงาน (รับ Magic Link)</label>
+        <input id="email" placeholder="name@company.com">
+      </div>
+      <div class="row" style="align-items:flex-end">
+        <button class="btn primary" id="btnSendLink">ส่งลิงก์เข้าสู่ระบบ</button>
+        <span class="hint" id="authMsg"></span>
+      </div>
+    </div>
+    <div class="hint" style="margin-top:6px">* เพิ่มโดเมนเว็บใน Auth → Redirect URLs ด้วย</div>
+  </div>
+
+  <!-- App (ซ่อนจนกว่าจะล็อกอิน) -->
+  <div id="appWrap" style="display:none">
+    <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:8px">
+      <div class="hint" id="whoami"></div>
+      <div class="row" style="gap:8px">
+        <input id="line-webhook" placeholder="LINE Webhook URL (ตัวเลือก)" style="min-width:320px">
+        <button class="btn" id="btnSaveCfg">บันทึกคอนฟิก</button>
+        <button class="btn" id="btnLogout">ออกจากระบบ</button>
+      </div>
+    </div>
+
+    <div class="tabbar">
+      <div class="tab active" data-tab="post">อัปเดตงาน</div>
+      <div class="tab" data-tab="feed">ไทม์ไลน์</div>
+      <div class="tab" data-tab="plan">แผนภาพ</div>
+    </div>
+    <!-- Post Tab -->
+    <section id="tab-post" class="card">
+      <div class="grid two" style="margin-top:10px">
+        <div>
+          <label>วัน-เวลาเหตุการณ์</label>
+          <input type="datetime-local" id="eventTime"/>
+        </div>
+        <div>
+          <label>สถานะ</label>
+          <select id="status">
+            <option value="doing">กำลังทำ (เหลือง)</option>
+            <option value="done">เสร็จแล้ว (เขียว)</option>
+            <option value="pending">รอดำเนินการ (เหลือง)</option>
+            <option value="blocked">ติดปัญหา (แดง)</option>
+          </select>
+        </div>
+        <div>
+          <label>บริษัท</label>
+          <input id="companyName" placeholder="เช่น บริษัท อาร์กู๊ด จำกัด"/>
+        </div>
+        <div>
+          <label>ชื่อเอกสาร</label>
+          <input id="documentName" placeholder="เช่น เอกสารชุดที่ 2 — ขึ้นทะเบียนปุ๋ย"/>
+        </div>
+        <div>
+          <label>ช่วงแผนงาน (เริ่ม)</label>
+          <input type="date" id="startDate"/>
+        </div>
+        <div>
+          <label>ช่วงแผนงาน (ครบกำหนด)</label>
+          <input type="date" id="dueDate"/>
+        </div>
+        <div>
+          <label>หัวข้อ/ชื่องาน</label>
+          <input id="title" placeholder="เช่น ส่งเอกสารชุดที่ 2 ให้หน่วยงาน"/>
+        </div>
+        <div>
+          <label>ผู้รับผิดชอบ</label>
+          <input id="assignee" placeholder="เช่น น้ำผึ้ง / ทีมเอกสาร"/>
+        </div>
+        <div>
+          <label>แผนก</label>
+          <input id="dept" placeholder="เช่น Operations"/>
+        </div>
+        <div>
+          <label>โครงการ</label>
+          <input id="project" placeholder="เช่น R.Good - ปุ๋ยรุ่น A"/>
+        </div>
+        <div class="grid" style="grid-template-columns:2fr 1fr; gap:10px">
+          <div>
+            <label>รายละเอียดงาน</label>
+            <textarea id="details" placeholder="สรุปสิ่งที่ทำ/ผลลัพธ์/ขั้นต่อไป"></textarea>
+          </div>
+          <div>
+            <label>แนบรูป (ถ้ามี)</label>
+            <input type="file" id="image" accept="image/*"/>
+            <div class="hint">อัปขึ้น bucket private: <b>timeline</b></div>
+          </div>
+        </div>
+        <div>
+          <label>หมายเหตุภายใน</label>
+          <input id="adminNote" placeholder="เช่น รอเอกสารตัวจริงจาก อย."/>
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn primary" id="btnSubmit">บันทึกอัปเดต</button>
+        <span id="postMsg" class="hint"></span>
+      </div>
+    </section>
+
+    <!-- Feed Tab -->
+    <section id="tab-feed" class="card" style="display:none">
+      <div class="filters two">
+        <div class="row" style="gap:8px">
+          <div style="flex:1">
+            <label>วันที่เริ่ม</label>
+            <input type="date" id="fromDate">
+          </div>
+          <div style="flex:1">
+            <label>ถึงวันที่</label>
+            <input type="date" id="toDate">
+          </div>
+        </div>
+        <div class="row" style="gap:8px">
+          <input id="qCompany" placeholder="กรอง: บริษัท">
+          <input id="qDocument" placeholder="กรอง: เอกสาร">
+          <input id="qAssignee" placeholder="กรอง: ผู้รับผิดชอบ">
+          <select id="qStatus">
+            <option value="">ทุกสถานะ</option>
+            <option value="doing">กำลังทำ (เหลือง)</option>
+            <option value="done">เสร็จแล้ว (เขียว)</option>
+            <option value="pending">รอดำเนินการ (เหลือง)</option>
+            <option value="blocked">ติดปัญหา (แดง)</option>
+          </select>
+          <button class="btn" id="btnFilter">กรอง</button>
+          <button class="btn" id="btnReset">ล้าง</button>
+          <button class="btn" id="btnExport">Export CSV</button>
+        </div>
+      </div>
+
+      <div class="timeline" id="timeline" style="margin-top:12px"></div>
+      <div id="feedMsg" class="hint" style="margin-top:8px"></div>
+    </section>
+
+    <!-- Plan Tab -->
+    <section id="tab-plan" class="card" style="display:none">
+      <div class="row" style="justify-content:space-between; align-items:center">
+        <div class="legend">
+          <span class="lg-done"></span> เสร็จแล้ว &nbsp;&nbsp;
+          <span class="lg-doing"></span> กำลังทำ/รอดำเนินการ &nbsp;&nbsp;
+          <span class="lg-blocked"></span> ติดปัญหา
+        </div>
+        <div class="row" style="gap:8px">
+          <input id="pFrom" type="date"/>
+          <input id="pTo" type="date"/>
+          <input id="pCompany" placeholder="บริษัท"/>
+          <input id="pDocument" placeholder="เอกสาร"/>
+          <select id="pStatus">
+            <option value="">ทุกสถานะ</option>
+            <option value="doing">กำลังทำ (เหลือง)</option>
+            <option value="done">เสร็จแล้ว (เขียว)</option>
+            <option value="pending">รอดำเนินการ (เหลือง)</option>
+            <option value="blocked">ติดปัญหา (แดง)</option>
+          </select>
+          <button class="btn" id="btnPlanFilter">กรอง</button>
+          <button class="btn" id="btnPlanReset">ล้าง</button>
+        </div>
+      </div>
+
+      <div class="plan-rows" id="planRows" style="margin-top:12px"></div>
+      <div id="planMsg" class="hint" style="margin-top:8px"></div>
+    </section>
+<script>
+  // ===== Helper: Thai date + พ.ศ. =====
+  function formatThaiDT(dtStr){
+    const d = new Date(dtStr); if(isNaN(d)) return '';
+    const day = d.getDate().toString().padStart(2,'0');
+    const month = (d.getMonth()+1).toString().padStart(2,'0');
+    const year = d.getFullYear()+543; const hh = d.getHours().toString().padStart(2,'0'); const mm = d.getMinutes().toString().padStart(2,'0');
+    return `${day}/${month}/${year} ${hh}:${mm}`;
+  }
+  function formatThaiD(dStr){
+    const d = new Date(dStr); if(isNaN(d)) return '';
+    const day = d.getDate().toString().padStart(2,'0');
+    const month = (d.getMonth()+1).toString().padStart(2,'0');
+    const year = d.getFullYear()+543; return `${day}/${month}/${year}`;
+  }
+  function statusPill(status){
+    const map = {done:'status-done', doing:'status-doing', blocked:'status-blocked', pending:'status-pending'};
+    const label = {done:'เสร็จแล้ว', doing:'กำลังทำ', blocked:'ติดปัญหา', pending:'รอดำเนินการ'}[status] || status;
+    return `<span class="pill ${map[status]||'status-doing'}">${label}</span>`;
+  }
+
+  // ===== State =====
+  let supabaseClient = null; let LINE_WEBHOOK_URL = '';
+  let currentRole = 'staff'; let currentUserId = null;
+
+  // ===== Bootstrap client from localStorage =====
+  const urlIn = document.getElementById('sb-url');
+  const keyIn = document.getElementById('sb-key');
+  const emailIn = document.getElementById('email');
+  const authCard = document.getElementById('authCard');
+  const appWrap = document.getElementById('appWrap');
+  const whoami = document.getElementById('whoami');
+  const authMsg = document.getElementById('authMsg');
+
+  function createClientFromStorage(){
+    const url = localStorage.getItem('SB_URL')||''; const key = localStorage.getItem('SB_KEY')||'';
+    urlIn.value=url; keyIn.value=key;
+    if(url && key){ supabaseClient = window.supabase.createClient(url, key); }
+  }
+  createClientFromStorage();
+
+  function setLINE(){
+    const line = localStorage.getItem('LINE_WEBHOOK_URL')||'';
+    document.getElementById('line-webhook').value = line; LINE_WEBHOOK_URL = line;
+  }
+  setLINE();
+
+  function showAuth(){ authCard.style.display='block'; appWrap.style.display='none'; }
+  function showApp(){ authCard.style.display='none'; appWrap.style.display='block'; }
+
+  async function loadRole(){
+    const { data:{ user } } = await (supabaseClient?.auth.getUser() || {});
+    if(!user) return;
+    currentUserId = user.id;
+    const { data, error } = await supabaseClient.from('profiles').select('role').eq('id', user.id).single();
+    if(!error && data){ currentRole = data.role||'staff'; }
+    whoami.textContent = `ลงชื่อเข้าใช้: ${user.email} — บทบาท: ${currentRole}`;
+  }
+
+  async function refreshSession(){
+    if(!supabaseClient){ showAuth(); return; }
+    const { data:{ session } } = await supabaseClient.auth.getSession();
+    if(session){ await loadRole(); showApp(); } else { showAuth(); }
+  }
+  refreshSession();
+  if(supabaseClient){ supabaseClient.auth.onAuthStateChange(()=>{ refreshSession(); }); }
+
+  // ===== Auth actions =====
+  document.getElementById('btnSendLink').addEventListener('click', async ()=>{
+    const url = urlIn.value.trim(); const key = keyIn.value.trim(); const email = emailIn.value.trim();
+    if(!url || !key || !email){ authMsg.innerHTML='<span class="danger">กรอก URL, Key และอีเมล</span>'; return; }
+    localStorage.setItem('SB_URL', url); localStorage.setItem('SB_KEY', key);
+    supabaseClient = window.supabase.createClient(url, key);
+    authMsg.textContent='กำลังส่งลิงก์...';
+    try{
+      const { error } = await supabaseClient.auth.signInWithOtp({
+        email, options:{ emailRedirectTo: location.origin + location.pathname }
+      });
+      if(error) throw error;
+      authMsg.innerHTML = '<span class="success">ส่งลิงก์แล้ว โปรดเช็คอีเมล</span>';
+    }catch(e){ authMsg.innerHTML = '<span class="danger">ส่งลิงก์ไม่สำเร็จ: '+(e.message||e)+'</span>'; }
+  });
+  document.getElementById('btnLogout').addEventListener('click', async ()=>{
+    if(supabaseClient) await supabaseClient.auth.signOut();
+  });
+  document.getElementById('btnSaveCfg').addEventListener('click',()=>{
+    localStorage.setItem('LINE_WEBHOOK_URL', document.getElementById('line-webhook').value.trim());
+    LINE_WEBHOOK_URL = document.getElementById('line-webhook').value.trim();
+  });
+  // ===== Upload image (private) =====
+  async function uploadImageIfAny(){
+    const file = document.getElementById('image').files[0]; if(!file) return null;
+    const ext = file.name.split('.').pop(); const filename = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+    const { error } = await supabaseClient.storage.from('timeline').upload(filename, file, { upsert:false });
+    if(error){ throw new Error('อัปโหลดรูปไม่สำเร็จ: '+error.message); }
+    return filename; // เก็บเป็น path (private)
+  }
+  async function signUrl(path){
+    if(!path) return null;
+    const { data } = await supabaseClient.storage.from('timeline').createSignedUrl(path, 60*60*24*7);
+    return data?.signedUrl||null;
+  }
+  async function callLineWebhook(payload){
+    if(!LINE_WEBHOOK_URL) return;
+    try{ await fetch(LINE_WEBHOOK_URL,{method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});}catch(e){}
+  }
+
+  // ===== Create =====
+  document.getElementById('btnSubmit').addEventListener('click', async ()=>{
+    const msg = document.getElementById('postMsg'); msg.textContent = '';
+    if(!supabaseClient){ msg.innerHTML='<span class="danger">ยังไม่ได้ตั้งค่า Supabase</span>'; return; }
+    const { data:{ session } } = await supabaseClient.auth.getSession(); if(!session){ msg.innerHTML='<span class="danger">ต้องล็อกอินก่อน</span>'; return; }
+
+    const eventTime = document.getElementById('eventTime').value;
+    const title = document.getElementById('title').value.trim();
+    const details = document.getElementById('details').value.trim();
+    const status = document.getElementById('status').value;
+    const assignee = document.getElementById('assignee').value.trim();
+    const dept = document.getElementById('dept').value.trim();
+    const project = document.getElementById('project').value.trim();
+    const adminNote = document.getElementById('adminNote').value.trim();
+    const company_name = document.getElementById('companyName').value.trim();
+    const document_name = document.getElementById('documentName').value.trim();
+    const sd = document.getElementById('startDate').value;
+    const dd = document.getElementById('dueDate').value;
+    if(!eventTime || !title){ msg.innerHTML='<span class="danger">กรอก "วัน-เวลา" และ "หัวข้อ"</span>'; return; }
+
+    try{
+      const image_path = await uploadImageIfAny();
+      const payload = {
+        event_time:new Date(eventTime).toISOString(), title, details, status, assignee, dept, project,
+        image_url: image_path, admin_note: adminNote,
+        company_name: company_name || null, document_name: document_name || null,
+        start_date: sd? new Date(sd+'T00:00:00').toISOString() : null,
+        due_date: dd? new Date(dd+'T23:59:59').toISOString() : null
+      };
+      const { error } = await supabaseClient.from('timeline_entries').insert(payload);
+      if(error) throw error; msg.innerHTML = '<span class="success">บันทึกแล้ว ✓</span>';
+      ['title','details','image','adminNote','companyName','documentName'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+      document.getElementById('startDate').value=''; document.getElementById('dueDate').value='';
+      callLineWebhook({ type:'timeline.new', title, status, assignee, dept, project, company_name, document_name, event_time: payload.event_time });
+    }catch(e){ msg.innerHTML = '<span class="danger">ผิดพลาด: '+ (e.message||e) +'</span>'; }
+  });
+
+  // ===== Feed (with RBAC actions) =====
+  window.appDelete = async function(id){
+    if(!confirm('ลบรายการนี้?')) return;
+    const { error } = await supabaseClient.from('timeline_entries').delete().eq('id', id);
+    if(error) alert('ลบไม่ได้: '+error.message); else loadFeed();
+  };
+  window.appSaveStatus = async function(id){
+    const sel = document.getElementById('st-'+id); const ns = sel?.value; if(!ns) return;
+    const { error } = await supabaseClient.from('timeline_entries').update({status:ns}).eq('id', id);
+    if(error) alert('อัปเดตไม่ได้: '+error.message); else loadFeed();
+  };
+
+  async function loadFeed(){
+    const wrap = document.getElementById('timeline'); const msg = document.getElementById('feedMsg');
+    wrap.innerHTML=''; msg.textContent='';
+    if(!supabaseClient){ msg.innerHTML='<span class="danger">ยังไม่ได้ตั้งค่า Supabase</span>'; return; }
+    const { data:{ session } } = await supabaseClient.auth.getSession(); if(!session){ msg.innerHTML='<span class="danger">ต้องล็อกอิน</span>'; return; }
+
+    let query = supabaseClient.from('timeline_entries').select('*').order('event_time', { ascending:false }).limit(300);
+    const f = document.getElementById('fromDate').value; const t = document.getElementById('toDate').value;
+    const qCompany = document.getElementById('qCompany').value.trim(); const qDocument = document.getElementById('qDocument').value.trim();
+    const qAssignee = document.getElementById('qAssignee').value.trim(); const qStatus = document.getElementById('qStatus').value;
+    if(f) query = query.gte('event_time', new Date(f+'T00:00:00').toISOString());
+    if(t) query = query.lte('event_time', new Date(t+'T23:59:59').toISOString());
+    if(qCompany) query = query.ilike('company_name', `%${qCompany}%`);
+    if(qDocument) query = query.ilike('document_name', `%${qDocument}%`);
+    if(qAssignee) query = query.ilike('assignee', `%${qAssignee}%`);
+    if(qStatus) query = query.eq('status', qStatus);
+
+    const { data, error } = await query;
+    if(error){ msg.innerHTML = '<span class="danger">โหลดข้อมูลไม่ได้: '+error.message+'</span>'; return; }
+    if(!data || !data.length){ msg.textContent = '— ไม่มีข้อมูล —'; return; }
+
+    await loadRole(); // เพื่อรู้ว่าเป็น admin หรือ staff
+
+    for(const r of data){
+      const canEdit = (currentRole==='admin') || (r.created_by === currentUserId);
+      const signed = r.image_url ? await signUrl(r.image_url) : null;
+      const img = signed ? `<img class="img" src="${signed}" alt="image">` : '';
+      const meta1 = [r.company_name?`บริษัท: ${r.company_name}`:null, r.document_name?`เอกสาร: ${r.document_name}`:null].filter(Boolean).join(' · ');
+      const meta2 = [r.assignee?`ผู้รับผิดชอบ: ${r.assignee}`:null, r.dept?`แผนก: ${r.dept}`:null, r.project?`โครงการ: ${r.project}`:null].filter(Boolean).join(' · ');
+      const plan = (r.start_date||r.due_date) ? `ช่วงแผน: ${(r.start_date?formatThaiD(r.start_date):'-')} — ${(r.due_date?formatThaiD(r.due_date):'-')}` : '';
+      const controls = canEdit ? `
+        <div class="row" style="gap:8px; margin-top:6px">
+          <select id="st-${r.id}">
+            <option value="doing" ${r.status==='doing'?'selected':''}>กำลังทำ</option>
+            <option value="done" ${r.status==='done'?'selected':''}>เสร็จแล้ว</option>
+            <option value="pending" ${r.status==='pending'?'selected':''}>รอดำเนินการ</option>
+            <option value="blocked" ${r.status==='blocked'?'selected':''}>ติดปัญหา</option>
+          </select>
+          <button class="btn" onclick="appSaveStatus('${r.id}')">บันทึกสถานะ</button>
+          <button class="btn" onclick="appDelete('${r.id}')">ลบ</button>
+        </div>` : '';
+
+      const html = `
+        <div class="item">
+          <div class="item-head">
+            <div><strong>${r.title||'-'}</strong></div>
+            <div class="item-meta">${formatThaiDT(r.event_time)} ${statusPill(r.status)}</div>
+          </div>
+          ${ meta1 ? `<div class="item-meta">${meta1}</div>`:'' }
+          ${ meta2 ? `<div class="item-meta">${meta2}</div>`:'' }
+          ${ plan ? `<div class="item-meta">${plan}</div>`:'' }
+          ${ r.details ? `<div>${r.details}</div>`:'' }
+          ${ img }
+          ${ controls }
+        </div>`;
+      wrap.insertAdjacentHTML('beforeend', html);
+    }
+    msg.textContent = `แสดง ${data.length} รายการ`;
+  }
+
+  // ===== Plan (Gantt-like) =====
+  function daysBetween(a,b){ const MS=24*3600*1000; return Math.max(0, Math.round((b-a)/MS)); }
+  async function loadPlan(){
+    const box = document.getElementById('planRows'); const msg = document.getElementById('planMsg');
+    box.innerHTML=''; msg.textContent='';
+    if(!supabaseClient){ msg.innerHTML='<span class="danger">ยังไม่ได้ตั้งค่า Supabase</span>'; return; }
+    const { data:{ session } } = await supabaseClient.auth.getSession(); if(!session){ msg.innerHTML='<span class="danger">ต้องล็อกอิน</span>'; return; }
+
+    let query = supabaseClient.from('timeline_entries').select('*').order('due_date', {ascending:true}).limit(400);
+    const f = document.getElementById('pFrom').value; const t = document.getElementById('pTo').value;
+    const c = document.getElementById('pCompany').value.trim(); const d = document.getElementById('pDocument').value.trim(); const s = document.getElementById('pStatus').value;
+    if(f) query = query.gte('event_time', new Date(f+'T00:00:00').toISOString());
+    if(t) query = query.lte('event_time', new Date(t+'T23:59:59').toISOString());
+    if(c) query = query.ilike('company_name', `%${c}%`);
+    if(d) query = query.ilike('document_name', `%${d}%`);
+    if(s) query = query.eq('status', s);
+
+    const { data, error } = await query;
+    if(error){ msg.innerHTML = '<span class="danger">โหลดข้อมูลไม่ได้: '+error.message+'</span>'; return; }
+    if(!data || !data.length){ msg.textContent = '— ไม่มีข้อมูล —'; return; }
+
+    // คำนวณแกนเวลา
+    let minT = Infinity, maxT = -Infinity; const MS=24*3600*1000;
+    for(const r of data){
+      const sT = r.start_date ? new Date(r.start_date).getTime() : (r.event_time? new Date(r.event_time).getTime():null);
+      const eT = r.due_date ? new Date(r.due_date).getTime() : sT;
+      if(sT!=null){ minT = Math.min(minT, sT); }
+      if(eT!=null){ maxT = Math.max(maxT, eT); }
+    }
+    if(!isFinite(minT) || !isFinite(maxT)){ msg.textContent='— ไม่มีข้อมูลช่วงเวลา —'; return; }
+    minT -= MS; maxT += MS; const totalDays = Math.max(1, Math.round((maxT-minT)/MS));
+
+    const axis = document.createElement('div'); axis.className='plan-axis';
+    axis.innerHTML = `<div>${formatThaiD(new Date(minT))}</div><div>${formatThaiD(new Date(maxT))}</div>`;
+    box.appendChild(axis);
+
+    for(const r of data){
+      const row = document.createElement('div'); row.className='plan-row';
+      const label = document.createElement('div'); label.className='plan-label';
+      const comp = r.company_name? `บริษัท: ${r.company_name}`:''; const doc = r.document_name? `เอกสาร: ${r.document_name}`:'';
+      label.innerHTML = `<strong>${r.title||'-'}</strong><div class="hint">${[comp,doc].filter(Boolean).join(' · ')||'—'}</div>`;
+
+      const canvas = document.createElement('div'); canvas.className='plan-canvas';
+      const sT = r.start_date ? new Date(r.start_date).getTime() : (r.event_time? new Date(r.event_time).getTime():minT);
+      const eT = r.due_date ? new Date(r.due_date).getTime() : sT;
+      const startDay = Math.min(totalDays, Math.max(0, Math.round((sT - minT)/MS)));
+      const durDays = Math.max(1, daysBetween(sT, eT) + 1);
+      const bar = document.createElement('div'); bar.className = `bar ${r.status||'doing'}`;
+      const observer = new ResizeObserver(()=>{
+        const W = canvas.clientWidth; const left = (startDay/totalDays) * W; const width = (durDays/totalDays) * W;
+        bar.style.left = `${left}px`; bar.style.width = `${Math.max(8,width)}px`;
+      });
+      observer.observe(canvas);
+      canvas.appendChild(bar);
+
+      row.appendChild(label); row.appendChild(canvas); box.appendChild(row);
+    }
+    msg.textContent = `รวม ${data.length} รายการ`;
+  }
+
+  // ===== Tabs =====
+  document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active')); t.classList.add('active');
+    const tab = t.dataset.tab;
+    document.getElementById('tab-post').style.display = (tab==='post')?'block':'none';
+    document.getElementById('tab-feed').style.display = (tab==='feed')?'block':'none';
+    document.getElementById('tab-plan').style.display = (tab==='plan')?'block':'none';
+    if(tab==='feed') loadFeed();
+    if(tab==='plan') loadPlan();
+  }));
+
+  // ===== Export CSV =====
+  document.getElementById('btnExport').addEventListener('click', async()=>{
+    const { data:{ session } } = await supabaseClient.auth.getSession(); if(!session){ alert('ต้องล็อกอิน'); return; }
+    const { data, error } = await supabaseClient.from('timeline_entries').select('*').order('event_time', {ascending:true});
+    if(error){ alert('โหลดข้อมูลไม่ได้: '+error.message); return; }
+    const header = ['event_time','title','details','status','assignee','dept','project','company_name','document_name','start_date','due_date','image_path'];
+    const rows = [header.join(',')].concat((data||[]).map(r=>[
+      r.event_time, JSON.stringify(r.title||''), JSON.stringify(r.details||''), r.status,
+      JSON.stringify(r.assignee||''), JSON.stringify(r.dept||''), JSON.stringify(r.project||''),
+      JSON.stringify(r.company_name||''), JSON.stringify(r.document_name||''), r.start_date||'', r.due_date||'',
+      JSON.stringify(r.image_url||'')
+    ].join(','))).join('\n');
+    const blob = new Blob([rows],{type:'text/csv;charset=utf-8;'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'timeline_export.csv'; a.click();
+  });
+
+  // ===== Default now =====
+  (function presetNow(){
+    const now = new Date(); now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    const el=document.getElementById('eventTime'); if(el) el.value = now.toISOString().slice(0,16);
+  })();
+</script>
+</div>
+</body>
+</html>
