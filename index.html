@@ -344,15 +344,23 @@
     if(tab==='plan') loadPlan();
   }));
 
-  // ===== Bootstrap client from localStorage =====
-  function createClientFromStorage(){
-    const url = localStorage.getItem('SB_URL')||'';
-    const key = localStorage.getItem('SB_KEY')||'';
-    document.getElementById('sb-url').value = url;
-    document.getElementById('sb-key').value = key;
-    if(url && key){ supabaseClient = window.supabase.createClient(url, key); }
-  }
-  createClientFromStorage();
+  // ===== Bootstrap client with EMBEDDED constants (no need to type) =====
+function createClientFromStorage(){
+  // !!! ใส่ค่าของโปรเจ็กต์คุณตรงนี้ !!!
+  const SUPABASE_URL = "https://YOUR-PROJECT-REF.supabase.co";
+  const SUPABASE_ANON_KEY = "ey...YOUR_ANON_KEY...";
+
+  // ใส่ค่าให้ช่อง และซ่อนช่องไม่ให้พนักงานเห็น
+  const urlEl = document.getElementById('sb-url');
+  const keyEl = document.getElementById('sb-key');
+  if(urlEl){ urlEl.value = SUPABASE_URL; urlEl.closest('div').style.display = 'none'; }
+  if(keyEl){ keyEl.value = SUPABASE_ANON_KEY; keyEl.closest('div').style.display = 'none'; }
+
+  // สร้าง client ทันทีจากค่าคงที่
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+createClientFromStorage();
+
 
   function loadLocalCfg(){
     LINE_WEBHOOK_URL = localStorage.getItem('LINE_WEBHOOK_URL')||'';
