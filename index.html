@@ -634,7 +634,15 @@ createClientFromStorage();
       const row = document.createElement('div'); row.className='plan-row';
       const label = document.createElement('div'); label.className='plan-label';
       const comp = r.company_name? `บริษัท: ${r.company_name}`:''; const doc = r.document_name? `เอกสาร: ${r.document_name}`:'';
-      label.innerHTML = `<strong>${r.title||'-'}</strong><div class="hint">${[comp,doc].filter(Boolean).join(' · ')||'—'}</div>`;
+      label.innerHTML = `
+  <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
+    <div>
+      <strong>${r.title||'-'}</strong>
+      <div class="hint">${[comp,doc].filter(Boolean).join(' · ')||'—'}</div>
+    </div>
+    <button class="btn danger" onclick="appDelete('${r.id}')">ลบ</button>
+  </div>
+`;
 
       const canvas = document.createElement('div'); canvas.className='plan-canvas';
       const sT = r.start_date ? new Date(r.start_date).getTime() : (r.event_time? new Date(r.event_time).getTime():minT);
