@@ -142,6 +142,7 @@
       <div class="tab active" data-tab="post">อัปเดตงาน</div>
       <div class="tab" data-tab="feed">ไทม์ไลน์</div>
       <div class="tab" data-tab="plan">แผนภาพ</div>
+      <div class="tab" data-tab="summary">สรุป</div>
     </div>
 
     <!-- Post Tab -->
@@ -242,6 +243,9 @@
           </select>
           <button class="btn" id="btnFilter">กรอง</button>
           <button class="btn" id="btnReset">ล้าง</button>
+          <button class="btn" id="quickToday">วันนี้</button>
+          <button class="btn" id="quickWeek">สัปดาห์นี้</button>
+          <button class="btn" id="quickTeam">ทีมนี้</button>
           <button class="btn" id="btnExport">Export CSV</button>
         </div>
       </div>
@@ -280,6 +284,15 @@
     </section>
   </div>
 </div>
+  <section id="tab-summary" class="card" style="display:none">
+  <div class="row" style="gap:8px">
+    <input type="date" id="sFrom">
+    <input type="date" id="sTo">
+    <button class="btn" id="btnSumApply">ดึงสรุป</button>
+  </div>
+  <div id="sumBox" style="margin-top:12px"></div>
+</section>
+
 
 <script>
   // ===== Helper: Date/Time TH + ตรวจ Drive =====
@@ -338,15 +351,7 @@
   });
 
   // App tabs
-  document.querySelectorAll('.tab[data-tab]').forEach(t=>t.addEventListener('click',()=>{
-    document.querySelectorAll('.tab[data-tab]').forEach(x=>x.classList.remove('active')); t.classList.add('active');
-    const tab = t.dataset.tab;
-    document.getElementById('tab-post').style.display = (tab==='post')?'block':'none';
-    document.getElementById('tab-feed').style.display = (tab==='feed')?'block':'none';
-    document.getElementById('tab-plan').style.display = (tab==='plan')?'block':'none';
-    if(tab==='feed') loadFeed();
-    if(tab==='plan') loadPlan();
-  }));
+  [data-auth]
 
   // ===== Bootstrap client with EMBEDDED constants (no need to type) =====
 function createClientFromStorage(){
@@ -384,6 +389,7 @@ createClientFromStorage();
     const { data, error } = await supabaseClient.from('profiles').select('role, display_name, dept').eq('id', user.id).single();
     if(!error && data){ currentRole = data.role||'staff'; }
     whoami.textContent = `ลงชื่อเข้าใช้: ${user.email} — บทบาท: ${currentRole}`;
+    if(!error && data){ currentRole = data.role||'staff'; currentDept = data.dept || ''; }
   }
 
   function subscribeRealtime(){
@@ -668,7 +674,63 @@ createClientFromStorage();
   }
 
   // ===== Filter buttons =====
-  document.getElementById('btnFilter').addEventListener('click', loadFeed);
+ document.getElementById('btnReset').addEventListener('click',()=>{
+  ['fromDate','toDate','qCompany','qDocument','qAssignee','qStatus'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  forceDept = '';
+  loadFeed();
+});
+
+  // ===== Quick filters =====
+const id = s => document.getElementById(s);
+
+function setDateInputs(fromISO, toISO){
+  id('fromDate').value = fromISO;
+  id('toDate').value   = toISO;
+}
+
+function getTodayPair(){
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); // ทำให้เป็น local
+  const isoDate = d.toISOString().slice(0,10);
+  return [isoDate, isoDate];
+}
+
+function getThisWeekPair(){
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); // local
+  // นับสัปดาห์แบบ จันทร์–อาทิตย์
+  const day = d.getDay(); // 0=อา,1=จ,..
+  const diffToMon = (day === 0 ? -6 : 1 - day);
+  const monday = new Date(d); monday.setDate(d.getDate() + diffToMon);
+  const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+  const toISO = x => x.toISOString().slice(0,10);
+  return [toISO(monday), toISO(sunday)];
+}
+
+// วันนี้
+id('quickToday')?.addEventListener('click', ()=>{
+  forceDept = ''; // ไม่บังคับทีม
+  const [f,t] = getTodayPair();
+  setDateInputs(f,t);
+  loadFeed();
+});
+
+// สัปดาห์นี้
+id('quickWeek')?.addEventListener('click', ()=>{
+  forceDept = '';
+  const [f,t] = getThisWeekPair();
+  setDateInputs(f,t);
+  loadFeed();
+});
+
+// ทีมนี้ (ใช้ dept จากโปรไฟล์)
+id('quickTeam')?.addEventListener('click', ()=>{
+  const [f,t] = getThisWeekPair(); // ให้ใช้ช่วง “สัปดาห์นี้” เป็นดีฟอลต์ (อยากแก้เป็นวันนี้ก็ได้)
+  setDateInputs(f,t);
+  forceDept = currentDept || '';   // บังคับกรองทีม
+  loadFeed();
+});
+
   document.getElementById('btnReset').addEventListener('click',()=>{
     ['fromDate','toDate','qCompany','qDocument','qAssignee','qStatus'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
     loadFeed();
@@ -811,6 +873,64 @@ document.getElementById('btnTestWeekly')?.addEventListener('click', async ()=>{
     alert('เรียกไม่สำเร็จ: ' + (e.message||e));
   }
 });
+async function loadSummary(){
+  const box = document.getElementById('sumBox');
+  const sFrom = document.getElementById('sFrom').value;
+  const sTo   = document.getElementById('sTo').value;
+  box.innerHTML = 'กำลังโหลด...';
+
+  const { data:{ session } } = await supabaseClient.auth.getSession();
+  if(!session){ box.innerHTML = '<span class="danger">ต้องล็อกอิน</span>'; return; }
+
+  let q = supabaseClient.from('timeline_entries')
+    .select('status, dept, id, title, event_time')
+    .order('event_time',{ascending:false})
+    .limit(1000);
+  if(sFrom) q = q.gte('event_time', new Date(sFrom+'T00:00:00').toISOString());
+  if(sTo)   q = q.lte('event_time', new Date(sTo+'T23:59:59').toISOString());
+
+  const { data, error } = await q;
+  if(error){ box.innerHTML = '<span class="danger">โหลดสรุปไม่ได้: '+error.message+'</span>'; return; }
+  if(!data?.length){ box.innerHTML = '— ไม่มีข้อมูลในช่วงที่เลือก —'; return; }
+
+  const cnt = {doing:0,pending:0,blocked:0,done:0};
+  const byDept = {};
+  for(const r of data){
+    cnt[r.status] = (cnt[r.status]||0)+1;
+    const d = r.dept || 'ไม่ระบุทีม';
+    byDept[d] ??= {doing:0,pending:0,blocked:0,done:0};
+    byDept[d][r.status] = (byDept[d][r.status]||0)+1;
+  }
+
+  let html = `
+    <div><strong>รวม ${data.length} งาน</strong></div>
+    <div class="row" style="gap:8px; flex-wrap:wrap; margin:6px 0">
+      <span class="pill status-doing">กำลังทำ ${cnt.doing||0}</span>
+      <span class="pill status-pending">รอดำเนินการ ${cnt.pending||0}</span>
+      <span class="pill status-blocked">ติดปัญหา ${cnt.blocked||0}</span>
+      <span class="pill status-done">เสร็จแล้ว ${cnt.done||0}</span>
+    </div>
+    <div style="margin-top:8px"><strong>สรุปตามทีม</strong></div>
+  `;
+  for(const d of Object.keys(byDept).sort()){
+    const c = byDept[d];
+    const total = (c.doing||0)+(c.pending||0)+(c.blocked||0)+(c.done||0);
+    html += `<div class="item" style="margin-top:8px">
+      <div class="item-head">
+        <div><strong>${d}</strong></div>
+        <div class="item-meta">รวม ${total} งาน</div>
+      </div>
+      <div class="row" style="gap:8px">
+        <span class="pill status-doing">กำลังทำ ${c.doing||0}</span>
+        <span class="pill status-pending">รอดำเนินการ ${c.pending||0}</span>
+        <span class="pill status-blocked">ติดปัญหา ${c.blocked||0}</span>
+        <span class="pill status-done">เสร็จแล้ว ${c.done||0}</span>
+      </div>
+    </div>`;
+  }
+  box.innerHTML = html;
+}
+document.getElementById('btnSumApply')?.addEventListener('click', loadSummary);
 
 </script>
 <!-- ==== /EASY MODE ADD-ON ==== -->
