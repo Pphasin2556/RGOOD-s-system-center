@@ -26,6 +26,8 @@
   .btn{background:#0b1220; border:1px solid var(--border); color:var(--ink); padding:10px 14px; border-radius:10px; cursor:pointer}
   .btn:hover{border-color:#334155}
   .btn.primary{background:var(--accent); color:#05202b; border-color:transparent; font-weight:700}
+  .btn.danger{ border-color: var(--err); color: var(--err); }
+  .btn.danger:hover{ background: rgba(239,68,68,.08); }
   .tabbar{display:flex; gap:8px; margin:10px 0 16px}
   .tab{cursor:pointer; padding:10px 14px; border-radius:10px; border:1px solid var(--border); color:var(--muted)}
   .tab.active{border-color:var(--accent); color:var(--ink)}
@@ -577,18 +579,20 @@ createClientFromStorage();
         </div>` : '';
 
       const html = `
-        <div class="item">
-          <div class="item-head">
-            <div><strong>${r.title||'-'}</strong></div>
-            <div class="item-meta">${formatThaiDT(r.event_time)} ${statusPill(r.status)}</div>
-          </div>
-          ${ meta1 ? `<div class="item-meta">${meta1}</div>`:'' }
-          ${ meta2 ? `<div class="item-meta">${meta2}</div>`:'' }
-          ${ plan ? `<div class="item-meta">${plan}</div>`:'' }
-          ${ r.details ? `<div>${r.details}</div>`:'' }
-          ${ drive }
-          ${ controls }
-        </div>`;
+  <div class="item">
+    <div class="item-head">
+      <div><strong>${r.title||'-'}</strong></div>
+      <div class="row" style="gap:8px; align-items:center">
+        <div class="item-meta">${formatThaiDT(r.event_time)} ${statusPill(r.status)}</div>
+        <button class="btn danger" onclick="appDelete('${r.id}')">ลบ</button>
+      </div>
+    </div>
+    ${ meta1 ? `<div class="item-meta">${meta1}</div>`:'' }
+    ${ meta2 ? `<div class="item-meta">${meta2}</div>`:'' }
+    ${ plan ? `<div class="item-meta">${plan}</div>`:'' }
+    ${ r.details ? `<div>${r.details}</div>`:'' }
+    ${ drive }
+  </div>`;
       wrap.insertAdjacentHTML('beforeend', html);
       if(drive){ await new Promise(res=>setTimeout(res,0)); } // ให้ iframe วาดก่อนแถวถัดไป
     }
