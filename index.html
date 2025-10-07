@@ -566,17 +566,17 @@ createClientFromStorage();
       const meta2 = [r.assignee?`ผู้รับผิดชอบ: ${r.assignee}`:null, r.dept?`แผนก: ${r.dept}`:null, r.project?`โครงการ: ${r.project}`:null].filter(Boolean).join(' · ');
       const plan = (r.start_date||r.due_date) ? `ช่วงแผน: ${(r.start_date?formatThaiD(r.start_date):'-')} — ${(r.due_date?formatThaiD(r.due_date):'-')}` : '';
       const drive = r.drive_link ? renderDrivePreview(r.drive_link) : '';
-      const controls = canEdit ? `
-        <div class="row" style="gap:8px; margin-top:6px">
-          <select id="st-${r.id}">
-            <option value="doing" ${r.status==='doing'?'selected':''}>กำลังทำ</option>
-            <option value="done" ${r.status==='done'?'selected':''}>เสร็จแล้ว</option>
-            <option value="pending" ${r.status==='pending'?'selected':''}>รอดำเนินการ</option>
-            <option value="blocked" ${r.status==='blocked'?'selected':''}>ติดปัญหา</option>
-          </select>
-          <button class="btn" onclick="appSaveStatus('${r.id}')">บันทึกสถานะ</button>
-          <button class="btn" onclick="appDelete('${r.id}')">ลบ</button>
-        </div>` : '';
+      const controls = `
+  <div class="row" style="gap:8px; margin-top:6px">
+    <select id="st-${r.id}">
+      <option value="doing" ${r.status==='doing'?'selected':''}>กำลังทำ</option>
+      <option value="done" ${r.status==='done'?'selected':''}>เสร็จแล้ว</option>
+      <option value="pending" ${r.status==='pending'?'selected':''}>รอดำเนินการ</option>
+      <option value="blocked" ${r.status==='blocked'?'selected':''}>ติดปัญหา</option>
+    </select>
+    <button class="btn" onclick="appSaveStatus('${r.id}')">บันทึกสถานะ</button>
+    <button class="btn danger" onclick="appDelete('${r.id}')">ลบ</button>
+  </div>`;
 
       const html = `
   <div class="item">
