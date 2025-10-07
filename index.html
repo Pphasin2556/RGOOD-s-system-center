@@ -72,11 +72,11 @@
     <div class="grid two">
       <div>
         <label>Supabase URL</label>
-        <input id="sb-url" placeholder="https://xxxxx.supabase.co">
+        <input id="sb-url" placeholder="https://cypsbggunfkgypcnydar.supabase.co">
       </div>
       <div>
         <label>Supabase Anon Key</label>
-        <input id="sb-key" placeholder="ey...">
+        <input id="sb-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5cHNiZ2d1bmZrZ3lwY255ZGFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4MzAxMzYsImV4cCI6MjA3NTQwNjEzNn0.xAGjPMyixrDLHXXsek4UMcLNjCV2vLscQAD4OaoHy4k">
       </div>
     </div>
 
@@ -131,6 +131,8 @@
         <button class="btn" id="btnSaveCfg">บันทึกคอนฟิก</button>
         <button class="btn" id="btnChangePw">เปลี่ยนรหัสผ่าน</button>
         <button class="btn" id="btnLogout">ออกจากระบบ</button>
+        <button class="btn" id="btnTestWeekly">ทดสอบแจ้งเตือนสัปดาห์ (LINE)</button>
+
       </div>
     </div>
 
@@ -347,8 +349,8 @@
   // ===== Bootstrap client with EMBEDDED constants (no need to type) =====
 function createClientFromStorage(){
   // !!! ใส่ค่าของโปรเจ็กต์คุณตรงนี้ !!!
-  const SUPABASE_URL = "https://YOUR-PROJECT-REF.supabase.co";
-  const SUPABASE_ANON_KEY = "ey...YOUR_ANON_KEY...";
+  const SUPABASE_URL = "https://cypsbggunfkgypcnydar.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5cHNiZ2d1bmZrZ3lwY255ZGFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4MzAxMzYsImV4cCI6MjA3NTQwNjEzNn0.xAGjPMyixrDLHXXsek4UMcLNjCV2vLscQAD4OaoHy4k";
 
   // ใส่ค่าให้ช่อง และซ่อนช่องไม่ให้พนักงานเห็น
   const urlEl = document.getElementById('sb-url');
@@ -785,6 +787,19 @@ createClientFromStorage();
     return `<span class="pill ${mapCls[status]||'status-doing'}">${showEmoji ? (em+' '+label) : label}</span>`;
   };
 })();
+  // ===== Test call Edge Function for weekly reminder =====
+document.getElementById('btnTestWeekly')?.addEventListener('click', async ()=>{
+  // !!! แทนที่ YOUR-PROJECT-REF ให้ตรงกับโปรเจ็กต์คุณ !!!
+  const url = "https://YOUR-PROJECT-REF.functions.supabase.co/weekly-line-reminder";
+  try{
+    const res = await fetch(url, { method: 'GET' });
+    const out = await res.json().catch(()=> ({}));
+    alert('เรียกฟังก์ชันแล้ว: ' + JSON.stringify(out));
+  }catch(e){
+    alert('เรียกไม่สำเร็จ: ' + (e.message||e));
+  }
+});
+
 </script>
 <!-- ==== /EASY MODE ADD-ON ==== -->
 
