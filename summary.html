@@ -80,15 +80,15 @@
 </div>
 
 <script>
-  // --- Supabase client (ฝังค่าคงที่ + รับ session จาก index) ---
-  let supabaseClient = null;
+  // --- Supabase client (ใช้โปรเจ็กต์เดียวกับ index) ---
   const SUPABASE_URL = "https://cypsbggunfkgypcnydar.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5cHNiZ2d1bmZrZ3lwY255ZGFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4MzAxMzYsImV4cCI6MjA3NTQwNjEzNn0.xAGjPMyixrDLHXXsek4UMcLNjCV2vLscQAD4OaoHy4k";
-  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  // state cache
-  let todayRows = []; // เก็บรายการของวันนี้ไว้ให้ปุ่มคัดลอก/ดาวน์โหลดใช้
+  // --- state cache ---
+  let todayRows = []; // ไว้ให้ปุ่มคัดลอก/ดาวน์โหลดใช้
 
+  // ===== utils =====
   function pad(n){ return String(n).padStart(2, '0'); }
   function thaiDateLabel(d){
     const dd = pad(d.getDate());
@@ -100,18 +100,17 @@
     const d = new Date(dtStr); if(isNaN(d)) return '-';
     return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
-
   function startEndOfToday(){
     const s = new Date(); s.setHours(0,0,0,0);
     const e = new Date(); e.setHours(23,59,59,999);
     return { s, e };
   }
 
+  // ===== main loader =====
   async function loadToday(){
     const { s, e } = startEndOfToday();
     document.getElementById('todayLabel').textContent = `ช่วงข้อมูล: ${thaiDateLabel(s)} (00:00) – ${thaiDateLabel(e)} (23:59)`;
 
-    // โหลดทั้งหมดของวันนี้ แล้วค่อยนับฝั่ง client
     const { data, error } = await supabaseClient
       .from('timeline_entries')
       .select('*')
@@ -119,7 +118,13 @@
       .lte('event_time', e.toISOString())
       .order('event_time', { ascending:true });
 
-    if(error){ console.error(error); alert('โหลดสรุปวันนี้ไม่สำเร็จ: '+error.message); return; }
+    if(error){
+      // ถ้ายังไม่ล็อกอิน (RLS), เงียบไว้ก่อน รอ index ส่ง session มา
+      if(error.status === 401 || error.status === 403){ console.warn('Not authenticated yet; waiting for session from index'); return; }
+      console.error(error);
+      alert('โหลดสรุปวันนี้ไม่สำเร็จ: '+error.message);
+      return;
+    }
     todayRows = data || [];
     renderToday(todayRows);
   }
@@ -163,7 +168,7 @@
     }
   }
 
-  // --- ปุ่มคัดลอก / ดาวน์โหลด ---
+  // ===== build text / csv =====
   function buildTodayText(){
     const { s } = startEndOfToday();
     const total = todayRows.length;
@@ -184,7 +189,6 @@
     }
     return t;
   }
-
   function buildCSV(){
     const header = ['event_time','title','status','assignee','dept','project','company_name','document_name','details'];
     const rows = todayRows.map(r=>[
@@ -198,46 +202,40 @@
       (r.document_name||'').replace(/"/g,'""'),
       (r.details||'').replace(/"/g,'""'),
     ]);
-    const csv = [header.join(',')].concat(rows.map(r=>{
-      return r.map(c => `"${c}"`).join(',');
-    })).join('\n');
+    const csv = [header.join(',')].concat(rows.map(r=> r.map(c => `"${c}"`).join(','))).join('\n');
     return csv;
   }
 
-  async function copyToday(){
+  // ===== buttons =====
+  document.getElementById('btnRefresh').addEventListener('click', loadToday);
+  document.getElementById('btnCopy').addEventListener('click', async ()=>{
     const txt = buildTodayText();
     await navigator.clipboard.writeText(txt);
     alert('คัดลอกสรุปของวันนี้แล้ว ✓');
-  }
-  function downloadTxt(){
+  });
+  document.getElementById('btnDownloadTxt').addEventListener('click', ()=>{
     const blob = new Blob([buildTodayText()], {type:'text/plain;charset=utf-8;'});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'summary_today.txt';
     a.click();
-  }
-  function downloadCsv(){
+  });
+  document.getElementById('btnDownloadCsv').addEventListener('click', ()=>{
     const blob = new Blob([buildCSV()], {type:'text/csv;charset=utf-8;'});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'summary_today.csv';
     a.click();
-  }
+  });
 
-  // --- ปุ่มกด ---
-  document.getElementById('btnRefresh').addEventListener('click', loadToday);
-  document.getElementById('btnCopy').addEventListener('click', copyToday);
-  document.getElementById('btnDownloadTxt').addEventListener('click', downloadTxt);
-  document.getElementById('btnDownloadCsv').addEventListener('click', downloadCsv);
-
-  // --- รับ session + คำสั่ง refresh จาก index.html ---
+  // ===== รับ session + คำสั่ง refresh จาก index.html =====
   window.addEventListener('message', async (e)=>{
     const d = e.data || {};
     if(d.type === 'supabaseSession' && d.access_token && d.refresh_token){
       try{
-        await supabaseClient.auth.setSession({ 
-          access_token: d.access_token, 
-          refresh_token: d.refresh_token 
+        await supabaseClient.auth.setSession({
+          access_token: d.access_token,
+          refresh_token: d.refresh_token
         });
         await loadToday();
       }catch(err){ console.warn('setSession failed', err); }
@@ -245,8 +243,19 @@
     if(d.type === 'refresh'){ loadToday(); }
   });
 
-  // โหลดแบบ best-effort ถ้ายังไม่ได้รับ session ก็จะโหลดอีกครั้งเมื่อ index ส่งมา
-  loadToday();
+  // ขอ session จาก parent อัตโนมัติ (เมื่อถูกฝังเป็น iframe ใน index.html)
+  window.addEventListener('DOMContentLoaded', ()=>{
+    if(window.parent && window.parent !== window){
+      window.parent.postMessage({ type:'requestSession' }, '*');
+    }
+    // พยายามโหลดแบบเงียบ ๆ เผื่อเปิดหน้าเดี่ยวแล้วมี session อยู่แล้ว
+    loadToday();
+  });
+
+  // ถ้ากลับมาโฟกัสหน้า ให้รีเฟรช
+  document.addEventListener('visibilitychange', ()=>{
+    if(!document.hidden) loadToday();
+  });
 </script>
 </body>
 </html>
