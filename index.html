@@ -142,6 +142,7 @@
       <div class="tab active" data-tab="post">อัปเดตงาน</div>
       <div class="tab" data-tab="feed">ไทม์ไลน์</div>
       <div class="tab" data-tab="plan">แผนภาพ</div>
+      <div class="tab" data-tab="summary">สรุป</div>
     </div>
 
     <!-- Post Tab -->
@@ -344,6 +345,7 @@
     document.getElementById('tab-post').style.display = (tab==='post')?'block':'none';
     document.getElementById('tab-feed').style.display = (tab==='feed')?'block':'none';
     document.getElementById('tab-plan').style.display = (tab==='plan')?'block':'none';
+    document.getElementById('tab-summary').style.display = (tab==='summary')?'block':'none';
     if(tab==='feed') loadFeed();
     if(tab==='plan') loadPlan();
   }));
