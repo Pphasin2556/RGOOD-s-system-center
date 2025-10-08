@@ -3,491 +3,266 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Summary — Daily Timeline (Editable)</title>
+<title>สรุปงาน — วันนี้ / สัปดาห์นี้ / ทีมนี้</title>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
     --bg:#0f172a; --card:#111827; --ink:#e5e7eb; --muted:#9ca3af; --border:#1f2937; --accent:#22d3ee;
-    --ok:#10b981; --warn:#f59e0b; --err:#ef4444; --doing:#f59e0b; --blocked:#ef4444; --pending:#f59e0b; --done:#10b981;
+    --ok:#10b981; --warn:#f59e0b; --err:#ef4444;
   }
   *{box-sizing:border-box}
   body{margin:0; background:linear-gradient(180deg,#0b1224,#0f172a); color:var(--ink); font-family:'Prompt',system-ui;}
-  .wrap{max-width:1200px; margin:24px auto; padding:0 16px}
-  header{display:flex; align-items:center; gap:12px; margin-bottom:16px}
-  h1{font-size:24px; margin:0}
-  .right{margin-left:auto}
-  .hint{font-size:12px; color:var(--muted)}
-  .card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:16px; box-shadow:0 8px 24px rgba(0,0,0,.25)}
-  .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
-  .btn{background:#0b1220; border:1px solid var(--border); color:var(--ink); padding:10px 14px; border-radius:10px; cursor:pointer}
+  .wrap{max-width:1100px; margin:20px auto; padding:0 14px}
+  header{display:flex; align-items:center; justify-content:space-between; margin-bottom:14px}
+  h1{font-size:22px; margin:0}
+  .card{background:#0b1220; border:1px solid var(--border); border-radius:14px; padding:14px}
+  .row{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+  .btn{background:#0b1220; border:1px solid var(--border); color:var(--ink); padding:8px 12px; border-radius:10px; cursor:pointer}
   .btn:hover{border-color:#334155}
   .btn.primary{background:var(--accent); color:#05202b; border-color:transparent; font-weight:700}
   .btn.danger{ border-color: var(--err); color: var(--err); }
+  .btn.danger:hover{ background: rgba(239,68,68,.08); }
+  input, select, textarea{background:#0b1220; color:var(--ink); border:1px solid var(--border); border-radius:10px; padding:8px 10px}
   .grid{display:grid; gap:12px}
-  .three{grid-template-columns:repeat(3,1fr)}
-  .kpis{display:grid; grid-template-columns:repeat(6,1fr); gap:12px}
-  .kpi{background:#0b1220; border:1px solid var(--border); border-radius:12px; padding:14px}
-  .kpi .label{font-size:12px; color:var(--muted)}
-  .kpi .val{font-size:22px; font-weight:700; margin-top:4px}
-  .pill{display:inline-block; padding:4px 8px; border-radius:999px; font-size:12px; font-weight:600}
-  .status-done{background:rgba(16,185,129,.12); color:var(--done);}
-  .status-doing{background:rgba(245,158,11,.12); color:var(--doing);}
-  .status-blocked{background:rgba(239,68,68,.12); color:var(--blocked);}
-  .status-pending{background:rgba(245,158,11,.12); color:var(--pending)}
-  .list{display:grid; gap:8px}
-  .item{background:#0b1220; border:1px solid var(--border); border-radius:12px; padding:12px}
+  .two{grid-template-columns:1fr 1fr}
+  .three{grid-template-columns:1fr 1fr 1fr}
+  .stat{display:grid; gap:4px; padding:12px; border:1px solid var(--border); border-radius:12px}
+  .stat .n{font-size:24px; font-weight:700}
+  .stat.ok{background:rgba(16,185,129,.08)}
+  .stat.warn{background:rgba(245,158,11,.08)}
+  .stat.err{background:rgba(239,68,68,.08)}
+  .list{display:grid; gap:10px}
+  .item{display:grid; gap:8px; padding:12px; border:1px solid var(--border); border-radius:12px; background:#0b1220}
   .item-head{display:flex; justify-content:space-between; gap:12px}
-  .item-meta{font-size:12px; color:var(--muted)}
-  .section-title{font-weight:700; margin:6px 0 8px}
-  .tabbar{display:flex; gap:8px; margin-top:8px}
-  .tab{cursor:pointer; padding:8px 12px; border-radius:10px; border:1px solid var(--border); color:var(--muted)}
-  .tab.active{border-color:var(--accent); color:var(--ink)}
-  /* charts */
-  .chart{display:grid; gap:10px}
-  .barrow{display:grid; grid-template-columns:140px 1fr 60px; align-items:center; gap:10px}
-  .barlabel{font-size:12px; color:var(--muted)}
-  .bartrack{height:12px; border-radius:999px; background:#0b1220; border:1px solid var(--border); overflow:hidden}
-  .barfill{height:100%; background:var(--accent)}
-  .editbox{margin-top:8px; border-top:1px dashed var(--border); padding-top:8px; display:none}
-  .editbox input, .editbox select, .editbox textarea{background:#0b1220; color:var(--ink); border:1px solid var(--border); border-radius:8px; padding:8px; width:100%}
-  .edit-actions{display:flex; gap:8px; margin-top:6px}
-  .grid.two{grid-template-columns:1fr 1fr}
-  @media (max-width:1000px){ .kpis{grid-template-columns:repeat(3,1fr)} .three{grid-template-columns:1fr} }
-  @media (max-width:700px){ .kpis{grid-template-columns:repeat(2,1fr)} .barrow{grid-template-columns:100px 1fr 48px} .grid.two{grid-template-columns:1fr} }
+  .meta{font-size:12px; color:var(--muted)}
+  .hint{font-size:12px; color:var(--muted)}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1>สรุปงาน — Daily Timeline</h1>
-    <div class="right hint" id="whoami">กำลังตรวจสอบสิทธิ์…</div>
+    <h1>สรุปงาน</h1>
+    <div class="row">
+      <a class="btn" href="index.html" target="_top">⬅ กลับหน้า Timeline</a>
+    </div>
   </header>
 
-  <div class="card">
+  <!-- Controls -->
+  <div class="card" style="margin-bottom:12px">
     <div class="row" style="justify-content:space-between">
       <div class="row">
-        <button class="btn" id="btnToday">วันนี้</button>
-        <button class="btn" id="btnWeek">สัปดาห์นี้</button>
-        <button class="btn" id="btnTeam">ทีมฉัน</button>
-        <div class="row" style="gap:6px; margin-left:6px">
-          <input type="date" id="fromDate">
-          <input type="date" id="toDate">
-          <button class="btn" id="btnApply">ใช้ช่วงวันที่</button>
-        </div>
+        <button class="btn" id="quickToday">วันนี้</button>
+        <button class="btn" id="quickWeek">สัปดาห์นี้</button>
+        <button class="btn" id="quickTeam">ทีมนี้</button>
+        <select id="statusFilter">
+          <option value="">ทุกสถานะ</option>
+          <option value="blocked">เฉพาะ: ติดปัญหา</option>
+          <option value="doing">เฉพาะ: กำลังทำ</option>
+          <option value="pending">เฉพาะ: รอดำเนินการ</option>
+          <option value="done">เฉพาะ: เสร็จแล้ว</option>
+        </select>
+        <input id="deptFilter" placeholder="กรอง: แผนก (ทีม)">
       </div>
-      <div class="row">
-        <button class="btn" id="btnExport">Export CSV</button>
-        <button class="btn" id="btnRefresh">รีเฟรช</button>
-        <button class="btn" id="btnPrint">พิมพ์/บันทึก PDF</button>
-      </div>
-    </div>
-
-    <div class="tabbar" style="margin-top:10px">
-      <div class="tab active" data-view="summary">สรุป</div>
-      <div class="tab" data-view="charts">กราฟ</div>
-    </div>
-    <!-- Summary Tab (ฝังไฟล์ summary.html) -->
-   <section id="tab-summary" class="card" style="display:none">
-  <iframe
-    src="summary.html"
-    style="width:100%; height:78vh; border:1px solid var(--border); border-radius:12px; background:#0b1220"
-  ></iframe>
-</section>
-
-    <div class="hint" style="margin-top:6px">
-      * “ทีมฉัน” อิงจาก <strong>profiles.dept</strong> ของผู้ใช้ที่ล็อกอิน
+      <div id="whoami" class="hint"></div>
     </div>
   </div>
 
-  <!-- SUMMARY VIEW -->
-  <section id="view-summary">
-    <div class="card" style="margin-top:12px">
-      <div class="kpis" id="kpiWrap"></div>
+  <!-- Stats -->
+  <div class="grid three" style="margin-bottom:12px">
+    <div class="stat err">
+      <div class="n" id="statBlocked">0</div>
+      <div class="hint">ติดปัญหา</div>
     </div>
-
-    <div class="grid three" style="margin-top:12px">
-      <div class="card">
-        <div class="section-title">งานที่ยังไม่เสร็จ (Doing + Pending)</div>
-        <div class="list" id="listOpen"></div>
-      </div>
-      <div class="card">
-        <div class="section-title">งานติดปัญหา (Blocked)</div>
-        <div class="list" id="listBlocked"></div>
-      </div>
-      <div class="card">
-        <div class="section-title">ครบกำหนด (ในช่วงที่เลือก)</div>
-        <div class="list" id="listDue"></div>
-      </div>
+    <div class="stat warn">
+      <div class="n" id="statWip">0</div>
+      <div class="hint">กำลังทำ / รอดำเนินการ</div>
     </div>
-  </section>
-
-  <!-- CHARTS VIEW -->
-  <section id="view-charts" style="display:none">
-    <div class="card" style="margin-top:12px">
-      <div class="section-title">สรุปตามสถานะ</div>
-      <div class="chart" id="chartStatus"></div>
-    </div>
-    <div class="card" style="margin-top:12px">
-      <div class="section-title">Top 10 ผู้รับผิดชอบ (ไม่นับงานเสร็จ)</div>
-      <div class="chart" id="chartAssignee"></div>
-    </div>
-    <div class="card" style="margin-top:12px">
-      <div class="section-title">สรุปตามแผนก (ไม่นับงานเสร็จ)</div>
-      <div class="chart" id="chartDept"></div>
-    </div>
-  </section>
-
-  <!-- Auth (ถ้ายังไม่ได้ล็อกอิน) -->
-  <div id="authCard" class="card" style="display:none; margin-top:12px">
-    <div class="row" style="gap:10px">
-      <input id="emailLogin" placeholder="อีเมล">
-      <input id="passwordLogin" type="password" placeholder="รหัสผ่าน">
-      <button class="btn primary" id="btnLogin">เข้าสู่ระบบ</button>
-      <span id="authMsg" class="hint"></span>
+    <div class="stat ok">
+      <div class="n" id="statDone">0</div>
+      <div class="hint">เสร็จแล้ว (ในช่วงที่เลือก)</div>
     </div>
   </div>
+
+  <!-- Lists -->
+  <div class="grid two">
+    <div class="card">
+      <h3 style="margin-top:0">ติดปัญหา</h3>
+      <div class="list" id="listBlocked"></div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">กำลังทำ / รอดำเนินการ</h3>
+      <div class="list" id="listWip"></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <h3 style="margin-top:0">เสร็จแล้ว</h3>
+    <div class="list" id="listDone"></div>
+  </div>
+
+  <div id="msg" class="hint" style="margin-top:10px"></div>
 </div>
 
 <script>
-/* ===== Utilities ===== */
-const fmt = {
-  thaiDT(dtStr){ const d = new Date(dtStr); if(isNaN(d)) return ''; const dd = String(d.getDate()).padStart(2,'0'); const mm = String(d.getMonth()+1).padStart(2,'0'); const yy = d.getFullYear()+543; const hh = String(d.getHours()).padStart(2,'0'); const mi = String(d.getMinutes()).padStart(2,'0'); return \`\${dd}/\${mm}/\${yy} \${hh}:\${mi}\`; },
-  thaiD(dStr){ const d = new Date(dStr); if(isNaN(d)) return ''; const dd = String(d.getDate()).padStart(2,'0'); const mm = String(d.getMonth()+1).padStart(2,'0'); const yy = d.getFullYear()+543; return \`\${dd}/\${mm}/\${yy}\`; }
-};
-const statusPill = (s)=>{ const cls = {done:'status-done', doing:'status-doing', blocked:'status-blocked', pending:'status-pending'}[s]||'status-doing'; const label = {done:'เสร็จแล้ว', doing:'กำลังทำ', blocked:'ติดปัญหา', pending:'รอดำเนินการ'}[s] || s; return \`<span class="pill \${cls}">\${label}</span>\`; };
-function startEndOfToday(){ const d=new Date(); d.setHours(0,0,0,0); const s=new Date(d); const e=new Date(d); e.setHours(23,59,59,999); return [s,e]; }
-function startEndOfThisWeek(){ const d=new Date(); const day=d.getDay(); const diffToMon=(day===0?-6:1-day); const mon=new Date(d); mon.setDate(d.getDate()+diffToMon); mon.setHours(0,0,0,0); const sun=new Date(mon); sun.setDate(mon.getDate()+6); sun.setHours(23,59,59,999); return [mon,sun]; }
-function toISO(d){ return new Date(d).toISOString(); }
-function isoStartOfDayLocal(yyyy_mm_dd){ if(!yyyy_mm_dd) return null; const x=new Date(yyyy_mm_dd+'T00:00:00'); return x.toISOString(); }
-function isoEndOfDayLocal(yyyy_mm_dd){ if(!yyyy_mm_dd) return null; const x=new Date(yyyy_mm_dd+'T23:59:59'); return x.toISOString(); }
-function toLocalDate(iso){ const d=new Date(iso); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); }
-function toLocalDateTime(iso){ const d=new Date(iso); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,16); }
+  // ==== Utils (วันที่แบบไทย) ====
+  function formatThaiDT(dtStr){
+    const d = new Date(dtStr); if(isNaN(d)) return '';
+    const dd = String(d.getDate()).padStart(2,'0');
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const yy = d.getFullYear()+543;
+    const hh = String(d.getHours()).padStart(2,'0');
+    const mi = String(d.getMinutes()).padStart(2,'0');
+    return `${dd}/${mm}/${yy} ${hh}:${mi}`;
+  }
+  function formatThaiD(dStr){
+    const d = new Date(dStr); if(isNaN(d)) return '';
+    const dd = String(d.getDate()).padStart(2,'0');
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const yy = d.getFullYear()+543;
+    return `${dd}/${mm}/${yy}`;
+  }
+  function startOfToday(){ const d=new Date(); d.setHours(0,0,0,0); return d; }
+  function endOfToday(){ const d=new Date(); d.setHours(23,59,59,999); return d; }
+  function startOfWeek(){ // จันทร์เป็นวันแรก
+    const d=new Date(); const day=(d.getDay()+6)%7; d.setHours(0,0,0,0); d.setDate(d.getDate()-day); return d;
+  }
+  function endOfWeek(){ const s=startOfWeek(); const e=new Date(s); e.setDate(s.getDate()+6); e.setHours(23,59,59,999); return e; }
 
-/* ===== State ===== */
-let supabaseClient=null; let currentUser=null; let currentDept=''; 
-let mode='week'; // today | week | team | custom
-let range={from:null,to:null};
-let lastRows=[]; let lastFrom=null; let lastTo=null;
+  // ==== Supabase client (ใช้ค่าคงที่เดียวกับ index.html) ====
+  const SUPABASE_URL = "https://cypsbggunfkgypcnydar.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5cHNiZ2d1bmZrZ3lwY255ZGFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4MzAxMzYsImV4cCI6MjA3NTQwNjEzNn0.xAGjPMyixrDLHXXsek4UMcLNjCV2vLscQAD4OaoHy4k";
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-/* ===== Supabase Client (ของโปรเจ็กต์คุณ) ===== */
-function createClientFromStorage(){
-  const SUPABASE_URL="https://cypsbggunfkgypcnydar.supabase.co";
-  const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5cHNiZ2d1bmZrZ3lwY255ZGFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4MzAxMzYsImV4cCI6MjA3NTQwNjEzNn0.xAGjPMyixrDLHXXsek4UMcLNjCV2vLscQAD4OaoHy4k";
-  supabaseClient=window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-}
-createClientFromStorage();
+  // ==== State ====
+  let currentUserId = null;
+  let currentDept = '';
+  let range = {from: startOfToday(), to: endOfToday()};
+  let teamOnly = false;
 
-/* ===== Auth/Profile ===== */
-const whoamiEl=document.getElementById('whoami'); const authCard=document.getElementById('authCard');
+  const whoami = document.getElementById('whoami');
+  const msg = document.getElementById('msg');
 
-async function loadSession(){
-  const { data:{ session } } = await supabaseClient.auth.getSession();
-  if(session){ currentUser=session.user; whoamiEl.textContent=\`ลงชื่อเข้าใช้: \${currentUser.email}\`; authCard.style.display='none'; await loadProfileDept(); }
-  else { currentUser=null; whoamiEl.textContent='ยังไม่ได้ล็อกอิน'; authCard.style.display='block'; }
-}
-async function loadProfileDept(){
-  try{ const { data, error } = await supabaseClient.from('profiles').select('dept').eq('id', currentUser.id).single();
-    if(!error && data){ currentDept=data.dept||''; if(currentDept) whoamiEl.innerHTML=\`ลงชื่อเข้าใช้: \${currentUser.email} <span class="hint">— ทีม: \${currentDept}</span>\`; }
-  }catch(e){}
-}
-document.getElementById('btnLogin').addEventListener('click', async ()=>{
-  const email=document.getElementById('emailLogin').value.trim(); const password=document.getElementById('passwordLogin').value; const msg=document.getElementById('authMsg');
-  try{ const { error } = await supabaseClient.auth.signInWithPassword({email,password}); if(error) throw error; msg.innerHTML='<span class="success">สำเร็จ ✓</span>'; await loadSession(); await refreshSummary(); }
-  catch(e){ msg.innerHTML='<span class="danger">'+(e.message||e)+'</span>'; }
-});
-supabaseClient?.auth.onAuthStateChange(()=>{ loadSession(); });
+  async function loadRole(){
+    const { data:{ user } } = await sb.auth.getUser();
+    if(!user){ whoami.textContent = 'ยังไม่ได้ล็อกอิน — โปรดกลับไปล็อกอินที่หน้า Timeline'; return false; }
+    currentUserId = user.id;
+    let dept = '';
+    try{
+      const { data, error } = await sb.from('profiles').select('dept, display_name, role').eq('id', user.id).single();
+      if(!error && data){
+        dept = data.dept || '';
+        whoami.textContent = `คุณ: ${user.email} — ทีม: ${dept||'-'}`;
+      }else{
+        whoami.textContent = `คุณ: ${user.email}`;
+      }
+    }catch(_) {}
+    currentDept = dept;
+    return true;
+  }
 
-/* ===== Date inputs ===== */
-function setDateInputs(from,to){
-  const f=document.getElementById('fromDate'); const t=document.getElementById('toDate');
-  const toLocal=(d)=>{ const x=new Date(d); x.setMinutes(x.getMinutes()-x.getTimezoneOffset()); return x.toISOString().slice(0,10); };
-  f.value=toLocal(from); t.value=toLocal(to);
-}
-function getDateInputs(){
-  const f=document.getElementById('fromDate').value; const t=document.getElementById('toDate').value;
-  if(!f||!t) return null; return { from:new Date(f+'T00:00:00'), to:new Date(t+'T23:59:59') };
-}
+  // ==== CRUD ====
+  async function updateStatus(id, newStatus){
+    const { error } = await sb.from('timeline_entries').update({status:newStatus}).eq('id', id);
+    if(error) alert('อัปเดตไม่ได้: '+error.message);
+  }
+  async function editItem(id){
+    // ดึงล่าสุดก่อน
+    const { data, error } = await sb.from('timeline_entries').select('title, details').eq('id', id).single();
+    if(error){ alert('อ่านรายการไม่ได้: '+error.message); return; }
+    const nt = prompt('หัวข้อใหม่:', data.title || '');
+    if(nt===null) return;
+    const nd = prompt('รายละเอียดใหม่:', data.details || '');
+    if(nd===null) return;
+    const { error: e2 } = await sb.from('timeline_entries').update({ title: nt.trim(), details: (nd||'').trim() }).eq('id', id);
+    if(e2) alert('แก้ไม่ได้: '+e2.message);
+  }
+  async function deleteItem(id){
+    if(!confirm('ลบรายการนี้?')) return;
+    const { error } = await sb.from('timeline_entries').delete().eq('id', id);
+    if(error) alert('ลบไม่ได้: '+error.message);
+  }
 
-/* ===== Fetch ===== */
-async function fetchEntries(from,to){
-  let q=supabaseClient.from('timeline_entries')
-    .select('*')
-    .or(\`and(due_date.gte.\${toISO(from)},due_date.lte.\${toISO(to)}),and(event_time.gte.\${toISO(from)},event_time.lte.\${toISO(to)})\`)
-    .order('due_date',{ascending:true});
-  if(mode==='team' && currentDept) q=q.eq('dept', currentDept);
-  const { data, error } = await q; if(error) throw error; return data||[];
-}
-
-/* ===== Render: KPIs / Lists ===== */
-function renderKPIs(rows, from, to){
-  const now=new Date();
-  const inRange=(r)=>{ const t=r.due_date? new Date(r.due_date) : (r.event_time? new Date(r.event_time):null); if(!t) return false; return t>=from && t<=to; };
-  const arr=rows.filter(inRange);
-  const cnt={
-    total:arr.length,
-    doing:arr.filter(r=>r.status==='doing').length,
-    pending:arr.filter(r=>r.status==='pending').length,
-    blocked:arr.filter(r=>r.status==='blocked').length,
-    done:arr.filter(r=>r.status==='done').length,
-    overdue:arr.filter(r=>{ const due=r.due_date? new Date(r.due_date):null; return due && due<now && r.status!=='done'; }).length,
-    dueToday:arr.filter(r=>{ if(!r.due_date) return false; const [s,e]=startEndOfToday(); const d=new Date(r.due_date); return d>=s && d<=e; }).length
-  };
-  const kpiWrap=document.getElementById('kpiWrap'); kpiWrap.innerHTML='';
-  const box=(label,val)=>`<div class="kpi"><div class="label">${label}</div><div class="val">${val}</div></div>`;
-  const title=(from.toDateString()===to.toDateString())?`ช่วง: ${fmt.thaiD(from)}`:`ช่วง: ${fmt.thaiD(from)} — ${fmt.thaiD(to)}`;
-  kpiWrap.insertAdjacentHTML('beforeend', box('รวมทั้งหมด', cnt.total));
-  kpiWrap.insertAdjacentHTML('beforeend', box('กำลังทำ', cnt.doing));
-  kpiWrap.insertAdjacentHTML('beforeend', box('รอดำเนินการ', cnt.pending));
-  kpiWrap.insertAdjacentHTML('beforeend', box('ติดปัญหา', cnt.blocked));
-  kpiWrap.insertAdjacentHTML('beforeend', box('เสร็จแล้ว', cnt.done));
-  kpiWrap.insertAdjacentHTML('beforeend', box('เกินกำหนด', cnt.overdue));
-  const kpiTitle=document.createElement('div'); kpiTitle.className='hint'; kpiTitle.style.gridColumn='1 / -1'; kpiTitle.textContent=`${title} · ครบกำหนดวันนี้: ${cnt.dueToday} งาน`; kpiWrap.appendChild(kpiTitle);
-}
-function rowHTML(r){
-  const esc = (s)=> (s||'').replace(/"/g,'&quot;');
-  const meta1=[r.company_name?`บริษัท: ${r.company_name}`:null, r.document_name?`เอกสาร: ${r.document_name}`:null].filter(Boolean).join(' · ');
-  const meta2=[r.assignee?`ผู้รับผิดชอบ: ${r.assignee}`:null, r.dept?`แผนก: ${r.dept}`:null, r.project?`โครงการ: ${r.project}`:null].filter(Boolean).join(' · ');
-  const due = r.due_date? (' · ครบกำหนด: '+fmt.thaiD(r.due_date)):'';
-  return `
-  <div class="item" id="item-${r.id}">
-    <div class="item-head">
-      <div><strong>${r.title||'-'}</strong></div>
-      <div class="row" style="gap:8px; align-items:center">
-        <div class="item-meta">${fmt.thaiDT(r.event_time)} ${statusPill(r.status)}</div>
-        <button class="btn" onclick="toggleEdit('${r.id}')">แก้ไข</button>
-      </div>
-    </div>
-    ${ meta1 ? `<div class="item-meta">${meta1}</div>`:'' }
-    ${ meta2 ? `<div class="item-meta">${meta2}</div>`:'' }
-    <div class="item-meta">เหตุการณ์: ${r.event_time?fmt.thaiDT(r.event_time):'-'}${due}</div>
-    ${ r.details ? `<div style="margin-top:6px">${r.details}</div>`:'' }
-
-    <!-- Edit box -->
-    <div class="editbox" id="edit-${r.id}">
-      <div class="grid two">
-        <div>
-          <label>หัวข้อ</label>
-          <input id="e-title-${r.id}" value="${esc(r.title)}" placeholder="หัวข้อ/ชื่องาน">
+  // ==== Query & Render ====
+  function makeItemHTML(r){
+    const meta1 = [r.company_name?`บริษัท: ${r.company_name}`:null, r.document_name?`เอกสาร: ${r.document_name}`:null].filter(Boolean).join(' · ');
+    const meta2 = [r.assignee?`ผู้รับผิดชอบ: ${r.assignee}`:null, r.dept?`แผนก: ${r.dept}`:null, r.project?`โครงการ: ${r.project}`:null].filter(Boolean).join(' · ');
+    return `
+      <div class="item">
+        <div class="item-head">
+          <div><strong>${r.title||'-'}</strong></div>
+          <div class="meta">${formatThaiDT(r.event_time)} · สถานะ: ${r.status}</div>
         </div>
-        <div>
-          <label>ผู้รับผิดชอบ</label>
-          <input id="e-assignee-${r.id}" placeholder="ผู้รับผิดชอบ" value="${esc(r.assignee)}">
-        </div>
-
-        <div>
-          <label>แผนก</label>
-          <input id="e-dept-${r.id}" placeholder="แผนก" value="${esc(r.dept)}">
-        </div>
-        <div>
-          <label>โครงการ</label>
-          <input id="e-project-${r.id}" placeholder="โครงการ" value="${esc(r.project)}">
-        </div>
-
-        <div>
-          <label>บริษัท</label>
-          <input id="e-company-${r.id}" placeholder="บริษัท" value="${esc(r.company_name)}">
-        </div>
-        <div>
-          <label>ชื่อเอกสาร</label>
-          <input id="e-doc-${r.id}" placeholder="ชื่อเอกสาร" value="${esc(r.document_name)}">
-        </div>
-
-        <div>
-          <label>สถานะ</label>
-          <select id="e-status-${r.id}">
+        ${ meta1 ? `<div class="meta">${meta1}</div>`:'' }
+        ${ meta2 ? `<div class="meta">${meta2}</div>`:'' }
+        ${ r.details ? `<div>${r.details}</div>`:'' }
+        <div class="row" style="margin-top:6px">
+          <select id="st-${r.id}">
             <option value="doing" ${r.status==='doing'?'selected':''}>กำลังทำ</option>
+            <option value="done" ${r.status==='done'?'selected':''}>เสร็จแล้ว</option>
             <option value="pending" ${r.status==='pending'?'selected':''}>รอดำเนินการ</option>
             <option value="blocked" ${r.status==='blocked'?'selected':''}>ติดปัญหา</option>
-            <option value="done" ${r.status==='done'?'selected':''}>เสร็จแล้ว</option>
           </select>
-        </div>
-        <div>
-          <label>ลิงก์ไฟล์ (Drive/Docs/Sheets/PDF)</label>
-          <input id="e-drive-${r.id}" placeholder="วางลิงก์แชร์" value="${esc(r.drive_link)}">
-        </div>
-
-        <div>
-          <label>เวลาเหตุการณ์</label>
-          <input id="e-event-${r.id}" type="datetime-local" value="${r.event_time? toLocalDateTime(r.event_time): ''}">
-        </div>
-        <div>
-          <label>ช่วงแผน (เริ่ม)</label>
-          <input id="e-start-${r.id}" type="date" value="${r.start_date? toLocalDate(r.start_date): ''}">
-        </div>
-        <div>
-          <label>ช่วงแผน (ครบกำหนด)</label>
-          <input id="e-due-${r.id}" type="date" value="${r.due_date? toLocalDate(r.due_date): ''}">
-        </div>
-
-        <div style="grid-column:1/-1">
-          <label>รายละเอียด</label>
-          <textarea id="e-details-${r.id}" placeholder="สรุปสิ่งที่ทำ/ผลลัพธ์/ขั้นต่อไป">${(r.details||'').replace(/</g,'&lt;')}</textarea>
+          <button class="btn" onclick="(async()=>{await updateStatus('${r.id}', document.getElementById('st-${r.id}').value); await refresh();})()">บันทึกสถานะ</button>
+          <button class="btn" onclick="(async()=>{await editItem('${r.id}'); await refresh();})()">แก้ไข</button>
+          <button class="btn danger" onclick="(async()=>{await deleteItem('${r.id}'); await refresh();})()">ลบ</button>
         </div>
       </div>
-      <div class="edit-actions">
-        <button class="btn primary" onclick="saveEdit('${r.id}')">บันทึก</button>
-        <button class="btn" onclick="toggleEdit('${r.id}', false)">ยกเลิก</button>
-      </div>
-      <div class="hint" id="e-msg-${r.id}"></div>
-    </div>
-  </div>`;
-}
-
-function renderLists(rows, from, to){
-  const listOpen=document.getElementById('listOpen');
-  const listBlocked=document.getElementById('listBlocked');
-  const listDue=document.getElementById('listDue');
-  listOpen.innerHTML=listBlocked.innerHTML=listDue.innerHTML='';
-
-  const inRange=(r)=>{ const t=r.due_date? new Date(r.due_date) : (r.event_time? new Date(r.event_time):null); if(!t) return false; return t>=from && t<=to; };
-  const byDue=(a,b)=>{ const da=a.due_date? new Date(a.due_date).getTime():Infinity; const db=b.due_date? new Date(b.due_date).getTime():Infinity; return da-db; };
-
-  const open=rows.filter(r=>inRange(r) && (r.status==='doing'||r.status==='pending')).sort(byDue).slice(0,30);
-  const blocked=rows.filter(r=>inRange(r) && r.status==='blocked').sort(byDue).slice(0,30);
-  const due=rows.filter(r=> r.due_date && (new Date(r.due_date)>=from && new Date(r.due_date)<=to) ).sort(byDue).slice(0,30);
-
-  if(open.length===0){ listOpen.innerHTML='<div class="hint">— ไม่มีงาน —</div>'; } else open.forEach(r=> listOpen.insertAdjacentHTML('beforeend', rowHTML(r)));
-  if(blocked.length===0){ listBlocked.innerHTML='<div class="hint">— ไม่มีงาน —</div>'; } else blocked.forEach(r=> listBlocked.insertAdjacentHTML('beforeend', rowHTML(r)));
-  if(due.length===0){ listDue.innerHTML='<div class="hint">— ไม่มีงานครบกำหนดในช่วง —</div>'; } else due.forEach(r=> listDue.insertAdjacentHTML('beforeend', rowHTML(r)));
-}
-
-/* ===== Edit actions ===== */
-window.toggleEdit=function(id, force){
-  const box=document.getElementById('edit-'+id); if(!box) return;
-  const show = (typeof force==='boolean')? force : (box.style.display==='none'||!box.style.display);
-  box.style.display = show? 'block':'none';
-}
-window.saveEdit=async function(id){
-  const msg=document.getElementById('e-msg-'+id);
-  const get = (sel)=> document.getElementById(sel+id);
-
-  const title = document.getElementById('e-title-'+id).value.trim();
-  const details = document.getElementById('e-details-'+id).value.trim();
-  const status = document.getElementById('e-status-'+id).value;
-  const assignee = document.getElementById('e-assignee-'+id).value.trim();
-  const dept = document.getElementById('e-dept-'+id).value.trim();
-  const project = document.getElementById('e-project-'+id).value.trim();
-  const company = document.getElementById('e-company-'+id).value.trim();
-  const doc = document.getElementById('e-doc-'+id).value.trim();
-  const drive = document.getElementById('e-drive-'+id).value.trim();
-  const eventRaw = document.getElementById('e-event-'+id).value;   // yyyy-mm-ddThh:mm
-  const startRaw = document.getElementById('e-start-'+id).value;   // yyyy-mm-dd
-  const dueRaw   = document.getElementById('e-due-'+id).value;     // yyyy-mm-dd
-
-  const payload = {
-    title: title || null,
-    details: details || null,
-    status,
-    assignee: assignee || null,
-    dept: dept || null,
-    project: project || null,
-    company_name: company || null,
-    document_name: doc || null,
-    drive_link: drive || null,
-    event_time: eventRaw ? new Date(eventRaw).toISOString() : null,
-    start_date: startRaw ? isoStartOfDayLocal(startRaw) : null,
-    due_date:   dueRaw   ? isoEndOfDayLocal(dueRaw)   : null,
-  };
-
-  try{
-    const { error } = await supabaseClient.from('timeline_entries').update(payload).eq('id', id);
-    if(error) throw error;
-    msg.innerHTML='<span class="success">บันทึกแล้ว ✓</span>';
-    await refreshSummary();
-  }catch(e){
-    msg.innerHTML='<span class="danger">อัปเดตไม่ได้: '+(e.message||e)+'</span>';
-    // ถ้าติด RLS ให้ตรวจ policy ของ UPDATE ให้เปิดสิทธิ์ตามที่ต้องการ (เช่น ให้ทุกคนอัปเดตได้)
+    `;
   }
-}
 
-/* ===== Charts ===== */
-function drawBars(containerId, pairs){
-  const box=document.getElementById(containerId); box.innerHTML='';
-  if(!pairs.length){ box.innerHTML='<div class="hint">— ไม่มีข้อมูล —</div>'; return; }
-  const max=Math.max(...pairs.map(p=>p.value),1);
-  pairs.forEach(p=>{
-    const pct=Math.round((p.value/max)*100);
-    const row=`<div class="barrow"><div class="barlabel">${p.label}</div><div class="bartrack"><div class="barfill" style="width:${pct}%"></div></div><div class="barval">${p.value}</div></div>`;
-    box.insertAdjacentHTML('beforeend', row);
-  });
-}
-function renderCharts(rows, from, to){
-  const inRange=(r)=>{ const t=r.due_date? new Date(r.due_date) : (r.event_time? new Date(r.event_time):null); return t && t>=from && t<=to; };
-  const arr=rows.filter(inRange);
+  async function refresh(){
+    const listBlocked = document.getElementById('listBlocked');
+    const listWip = document.getElementById('listWip');
+    const listDone = document.getElementById('listDone');
+    listBlocked.innerHTML = listWip.innerHTML = listDone.innerHTML = '';
+    msg.textContent = '';
 
-  // by status
-  const statuses=['doing','pending','blocked','done'];
-  const labelTH={doing:'กำลังทำ', pending:'รอดำเนินการ', blocked:'ติดปัญหา', done:'เสร็จแล้ว'};
-  const stPairs = statuses.map(s=>({ label: labelTH[s], value: arr.filter(r=>r.status===s).length }));
-  drawBars('chartStatus', stPairs);
+    const statusFilter = document.getElementById('statusFilter').value;
+    const deptFilter = (document.getElementById('deptFilter').value || '').trim();
 
-  // by assignee (not done)
-  const m1={}; arr.filter(r=>r.status!=='done').forEach(r=>{ const k=r.assignee||'(ไม่ระบุ)'; m1[k]=(m1[k]||0)+1; });
-  const assPairs = Object.entries(m1).map(([k,v])=>({label:k, value:v})).sort((a,b)=>b.value-a.value).slice(0,10);
-  drawBars('chartAssignee', assPairs);
+    let q = sb.from('timeline_entries').select('*').order('event_time',{ascending:false}).limit(500);
+    if(range.from) q = q.gte('event_time', range.from.toISOString());
+    if(range.to)   q = q.lte('event_time', range.to.toISOString());
+    if(teamOnly && currentDept) q = q.ilike('dept', `%${currentDept}%`);
+    if(deptFilter) q = q.ilike('dept', `%${deptFilter}%`);
+    if(statusFilter) q = q.eq('status', statusFilter);
 
-  // by dept (not done)
-  const m2={}; arr.filter(r=>r.status!=='done').forEach(r=>{ const k=r.dept||'(ไม่ระบุ)'; m2[k]=(m2[k]||0)+1; });
-  const deptPairs = Object.entries(m2).map(([k,v])=>({label:k, value:v})).sort((a,b)=>b.value-a.value);
-  drawBars('chartDept', deptPairs);
-}
+    const { data, error } = await q;
+    if(error){ msg.textContent = 'โหลดข้อมูลไม่ได้: ' + error.message; return; }
 
-/* ===== Export CSV ===== */
-function exportCSV(rows){
-  const header=['id','event_time','title','details','status','assignee','dept','project','company_name','document_name','start_date','due_date','drive_link'];
-  const encode=(v)=>JSON.stringify(v??'');
-  const lines=[header.join(',')].concat(rows.map(r=>[
-    r.id, r.event_time, encode(r.title), encode(r.details), r.status, encode(r.assignee), encode(r.dept), encode(r.project),
-    encode(r.company_name), encode(r.document_name), r.start_date||'', r.due_date||'', encode(r.drive_link)
-  ].join(',')));
-  const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='timeline_summary_export.csv'; a.click();
-}
+    const blocked = (data||[]).filter(r=>r.status==='blocked');
+    const wip = (data||[]).filter(r=>r.status==='doing' || r.status==='pending');
+    const done = (data||[]).filter(r=>r.status==='done');
 
-/* ===== View switch & Refresh ===== */
-function viewSwitch(view){
-  document.querySelectorAll('.tab[data-view]').forEach(t=>t.classList.remove('active'));
-  document.querySelector(`.tab[data-view="${view}"]`)?.classList.add('active');
-  document.getElementById('view-summary').style.display = (view==='summary')?'block':'none';
-  document.getElementById('view-charts').style.display = (view==='charts')?'block':'none';
-}
-document.querySelectorAll('.tab[data-view]').forEach(t=>t.addEventListener('click',()=> viewSwitch(t.dataset.view)));
+    // stats
+    document.getElementById('statBlocked').textContent = blocked.length;
+    document.getElementById('statWip').textContent = wip.length;
+    document.getElementById('statDone').textContent = done.length;
 
-async function refreshSummary(){
-  // figure range
-  let from,to;
-  if(mode==='today'){ [from,to]=startEndOfToday(); }
-  else if(mode==='week' || mode==='team'){ [from,to]=startEndOfThisWeek(); }
-  else if(mode==='custom'){ ({from,to}=range); } else { [from,to]=startEndOfThisWeek(); }
-  lastFrom=from; lastTo=to;
-  setDateInputs(from,to);
+    // render
+    for(const r of blocked) listBlocked.insertAdjacentHTML('beforeend', makeItemHTML(r));
+    for(const r of wip)     listWip.insertAdjacentHTML('beforeend', makeItemHTML(r));
+    for(const r of done)    listDone.insertAdjacentHTML('beforeend', makeItemHTML(r));
 
-  try{
-    const rows=await fetchEntries(from,to);
-    lastRows=rows;
-    renderKPIs(rows, from, to);
-    renderLists(rows, from, to);
-    renderCharts(rows, from, to);
-  }catch(e){ alert('โหลดสรุปไม่ได้: '+(e.message||e)); }
-}
+    if(!data?.length) msg.textContent = '— ไม่มีข้อมูลในช่วงที่เลือก —';
+  }
 
-/* ===== Controls ===== */
-document.getElementById('btnToday').addEventListener('click', ()=>{ mode='today'; refreshSummary(); });
-document.getElementById('btnWeek').addEventListener('click', ()=>{ mode='week'; refreshSummary(); });
-document.getElementById('btnTeam').addEventListener('click', ()=>{ mode='team'; refreshSummary(); });
-document.getElementById('btnApply').addEventListener('click', ()=>{ const v=getDateInputs(); if(!v){ alert('กรอกช่วงวันที่ให้ครบ'); return; } mode='custom'; range=v; refreshSummary(); });
-document.getElementById('btnRefresh').addEventListener('click', refreshSummary);
-document.getElementById('btnPrint').addEventListener('click', ()=> window.print());
-document.getElementById('btnExport').addEventListener('click', ()=> exportCSV(lastRows));
+  // ==== Quick filters ====
+  document.getElementById('quickToday').onclick = ()=>{ range={from:startOfToday(), to:endOfToday()}; teamOnly=false; refresh(); };
+  document.getElementById('quickWeek').onclick  = ()=>{ range={from:startOfWeek(), to:endOfWeek()}; teamOnly=false; refresh(); };
+  document.getElementById('quickTeam').onclick  = ()=>{ if(!currentDept){ alert('ยังไม่มี dept ในโปรไฟล์'); } teamOnly=true; refresh(); };
 
-/* ===== Init ===== */
-(async function init(){
-  const [s,e]=startEndOfThisWeek(); setDateInputs(s,e);
-  await loadSession();
-  mode='week';
-  if(currentUser) await refreshSummary();
-})();
+  document.getElementById('statusFilter').onchange = refresh;
+  document.getElementById('deptFilter').oninput = ()=>{ clearTimeout(window.__depTT); window.__depTT = setTimeout(refresh, 300); };
+
+  // ==== Init ====
+  (async function init(){
+    const ok = await loadRole(); // แสดงอีเมล/ทีมบนหัว
+    // ไม่บังคับล็อกอินเพื่อดูหน้า (แต่จะ CRUD ไม่ได้หากไม่ได้ auth)
+    range = {from:startOfToday(), to:endOfToday()};
+    await refresh();
+  })();
 </script>
 </body>
 </html>
