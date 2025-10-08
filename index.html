@@ -5,7 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Daily Timeline — Internal (Email+Password, Drive, RBAC, Realtime)</title>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<!-- ✅ ใช้ UMD build เพื่อให้ window.supabase มีจริง -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+
 <style>
   :root{
     --bg:#0f172a; --card:#111827; --ink:#e5e7eb; --muted:#9ca3af; --border:#1f2937; --accent:#22d3ee;
@@ -44,7 +47,6 @@
   .filters.two{grid-template-columns:repeat(2,1fr)}
   .right{margin-left:auto}
   .hint{font-size:12px; color:var(--muted)}
-  .danger{color:var(--err)} .success{color:var(--ok)}
 
   /* Plan (Gantt-like) */
   .plan-rows{display:grid; gap:8px}
@@ -67,6 +69,8 @@
   <header>
     <h1>Daily Timeline — Internal (Email+Password, Drive, RBAC, Realtime)</h1>
     <div class="right hint">ภายในเท่านั้น — ล็อกอินด้วยอีเมล/รหัสผ่าน</div>
+    <!-- ✅ ปุ่มเช็คต่อ Supabase -->
+    <button class="btn" id="btnHealth">เช็คการเชื่อมต่อ</button>
   </header>
 
   <!-- Auth Card -->
@@ -78,7 +82,7 @@
       </div>
       <div>
         <label>Supabase Anon Key</label>
-        <input id="sb-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5cHNiZ2d1bmZrZ3lwY255ZGFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4MzAxMzYsImV4cCI6MjA3NTQwNjEzNn0.xAGjPMyixrDLHXXsek4UMcLNjCV2vLscQAD4OaoHy4k">
+        <input id="sb-key" placeholder="ใส่ anon key ที่นี่">
       </div>
     </div>
 
@@ -134,7 +138,6 @@
         <button class="btn" id="btnChangePw">เปลี่ยนรหัสผ่าน</button>
         <button class="btn" id="btnLogout">ออกจากระบบ</button>
         <button class="btn" id="btnTestWeekly">ทดสอบแจ้งเตือนสัปดาห์ (LINE)</button>
-
       </div>
     </div>
 
@@ -279,6 +282,14 @@
       <div class="plan-rows" id="planRows" style="margin-top:12px"></div>
       <div id="planMsg" class="hint" style="margin-top:8px"></div>
     </section>
+
+    <!-- ✅ Summary Tab (ฝังหน้า summary.html) -->
+    <section id="tab-summary" class="card" style="display:none">
+      <iframe
+        src="summary.html"
+        style="width:100%; height:78vh; border:1px solid var(--border); border-radius:12px; background:#0b1220"
+      ></iframe>
+    </section>
   </div>
 </div>
 
@@ -351,22 +362,27 @@
   }));
 
   // ===== Bootstrap client with EMBEDDED constants (no need to type) =====
-function createClientFromStorage(){
-  // !!! ใส่ค่าของโปรเจ็กต์คุณตรงนี้ !!!
-  const SUPABASE_URL = "https://cypsbggunfkgypcnydar.supabase.co";
-  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5cHNiZ2d1bmZrZ3lwY255ZGFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4MzAxMzYsImV4cCI6MjA3NTQwNjEzNn0.xAGjPMyixrDLHXXsek4UMcLNjCV2vLscQAD4OaoHy4k";
+  function createClientFromStorage(){
+    // !!! ใส่ค่าของโปรเจ็กต์คุณตรงนี้ !!!
+    const SUPABASE_URL = "https://cypsbggunfkgypcnydar.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5cHNiZ2d1bmZrZ3lwY255ZGFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4MzAxMzYsImV4cCI6MjA3NTQwNjEzNn0.xAGjPMyixrDLHXXsek4UMcLNjCV2vLscQAD4OaoHy4k";
 
-  // ใส่ค่าให้ช่อง และซ่อนช่องไม่ให้พนักงานเห็น
-  const urlEl = document.getElementById('sb-url');
-  const keyEl = document.getElementById('sb-key');
-  if(urlEl){ urlEl.value = SUPABASE_URL; urlEl.closest('div').style.display = 'none'; }
-  if(keyEl){ keyEl.value = SUPABASE_ANON_KEY; keyEl.closest('div').style.display = 'none'; }
+    // ใส่ค่าให้ช่อง และซ่อนช่องไม่ให้พนักงานเห็น
+    const urlEl = document.getElementById('sb-url');
+    const keyEl = document.getElementById('sb-key');
+    if(urlEl){ urlEl.value = SUPABASE_URL; urlEl.closest('div').style.display = 'none'; }
+    if(keyEl){ keyEl.value = SUPABASE_ANON_KEY; keyEl.closest('div').style.display = 'none'; }
 
-  // สร้าง client ทันทีจากค่าคงที่
-  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-}
-createClientFromStorage();
-
+    // สร้าง client ทันทีจากค่าคงที่
+    try{
+      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      console.log('[Supabase] client created');
+    }catch(e){
+      console.error('[Supabase] createClient error:', e);
+      alert('สร้าง Supabase client ไม่ได้: ' + (e.message||e));
+    }
+  }
+  createClientFromStorage();
 
   function loadLocalCfg(){
     LINE_WEBHOOK_URL = localStorage.getItem('LINE_WEBHOOK_URL')||'';
@@ -380,12 +396,16 @@ createClientFromStorage();
   function showApp(){ authCard.style.display='none'; appWrap.style.display='block'; }
 
   async function loadRole(){
-    const { data:{ user } } = await (supabaseClient?.auth.getUser() || {});
-    if(!user) return;
-    currentUserId = user.id;
-    const { data, error } = await supabaseClient.from('profiles').select('role, display_name, dept').eq('id', user.id).single();
-    if(!error && data){ currentRole = data.role||'staff'; }
-    whoami.textContent = `ลงชื่อเข้าใช้: ${user.email} — บทบาท: ${currentRole}`;
+    try{
+      const { data:{ user } } = await (supabaseClient?.auth.getUser() || {});
+      if(!user) return;
+      currentUserId = user.id;
+      const { data, error } = await supabaseClient.from('profiles').select('role, display_name, dept').eq('id', user.id).single();
+      if(!error && data){ currentRole = data.role||'staff'; }
+      whoami.textContent = `ลงชื่อเข้าใช้: ${user.email} — บทบาท: ${currentRole}`;
+    }catch(e){
+      console.warn('loadRole error', e);
+    }
   }
 
   function subscribeRealtime(){
@@ -439,8 +459,8 @@ createClientFromStorage();
     const msg = document.getElementById('authMsgLogin');
     if(!url || !key || !email || !password){ msg.innerHTML = '<span class="danger">กรอกครบทุกช่องก่อน</span>'; return; }
     localStorage.setItem('SB_URL', url); localStorage.setItem('SB_KEY', key);
-    supabaseClient = window.supabase.createClient(url, key);
     try{
+      supabaseClient = window.supabase.createClient(url, key);
       const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
       if(error) throw error;
       msg.innerHTML = '<span class="success">เข้าสู่ระบบสำเร็จ</span>';
@@ -458,8 +478,8 @@ createClientFromStorage();
     const dom = (ALLOWED_EMAIL_DOMAIN||'').toLowerCase();
     if(dom && !email.toLowerCase().endsWith('@'+dom)){ msg.innerHTML = '<span class="danger">อีเมลต้องลงท้ายด้วย @'+dom+'</span>'; return; }
     localStorage.setItem('SB_URL', url); localStorage.setItem('SB_KEY', key);
-    supabaseClient = window.supabase.createClient(url, key);
     try{
+      supabaseClient = window.supabase.createClient(url, key);
       const { error } = await supabaseClient.auth.signUp({ email, password });
       if(error) throw error;
       msg.innerHTML = '<span class="success">สมัครสำเร็จ แล้วไปที่แท็บ “เข้าสู่ระบบ”</span>';
@@ -515,7 +535,7 @@ createClientFromStorage();
     }catch(e){ msg.innerHTML = '<span class="danger">ผิดพลาด: '+ (e.message||e) +'</span>'; }
   });
 
-  // ===== Feed (พร้อมปุ่มแก้สถานะ/ลบ ตาม RBAC) =====
+  // ===== Feed (ให้ลบ/แก้สถานะได้ทุกคน ตามที่คุณตั้ง RLS) =====
   window.appDelete = async function(id){
     if(!confirm('ลบรายการนี้?')) return;
     const { error } = await supabaseClient.from('timeline_entries').delete().eq('id', id);
@@ -563,40 +583,37 @@ createClientFromStorage();
     await loadRole();
 
     for(const r of data){
-      const canEdit = (currentRole==='admin') || (r.created_by === currentUserId);
       const meta1 = [r.company_name?`บริษัท: ${r.company_name}`:null, r.document_name?`เอกสาร: ${r.document_name}`:null].filter(Boolean).join(' · ');
       const meta2 = [r.assignee?`ผู้รับผิดชอบ: ${r.assignee}`:null, r.dept?`แผนก: ${r.dept}`:null, r.project?`โครงการ: ${r.project}`:null].filter(Boolean).join(' · ');
       const plan = (r.start_date||r.due_date) ? `ช่วงแผน: ${(r.start_date?formatThaiD(r.start_date):'-')} — ${(r.due_date?formatThaiD(r.due_date):'-')}` : '';
       const drive = r.drive_link ? renderDrivePreview(r.drive_link) : '';
       const controls = `
-  <div class="row" style="gap:8px; margin-top:6px">
-    <select id="st-${r.id}">
-      <option value="doing" ${r.status==='doing'?'selected':''}>กำลังทำ</option>
-      <option value="done" ${r.status==='done'?'selected':''}>เสร็จแล้ว</option>
-      <option value="pending" ${r.status==='pending'?'selected':''}>รอดำเนินการ</option>
-      <option value="blocked" ${r.status==='blocked'?'selected':''}>ติดปัญหา</option>
-    </select>
-    <button class="btn" onclick="appSaveStatus('${r.id}')">บันทึกสถานะ</button>
-    <button class="btn danger" onclick="appDelete('${r.id}')">ลบ</button>
-  </div>`;
+        <div class="row" style="gap:8px; margin-top:6px">
+          <select id="st-${r.id}">
+            <option value="doing" ${r.status==='doing'?'selected':''}>กำลังทำ</option>
+            <option value="done" ${r.status==='done'?'selected':''}>เสร็จแล้ว</option>
+            <option value="pending" ${r.status==='pending'?'selected':''}>รอดำเนินการ</option>
+            <option value="blocked" ${r.status==='blocked'?'selected':''}>ติดปัญหา</option>
+          </select>
+          <button class="btn" onclick="appSaveStatus('${r.id}')">บันทึกสถานะ</button>
+          <button class="btn danger" onclick="appDelete('${r.id}')">ลบ</button>
+        </div>`;
 
       const html = `
-  <div class="item">
-    <div class="item-head">
-      <div><strong>${r.title||'-'}</strong></div>
-      <div class="row" style="gap:8px; align-items:center">
-        <div class="item-meta">${formatThaiDT(r.event_time)} ${statusPill(r.status)}</div>
-        <button class="btn danger" onclick="appDelete('${r.id}')">ลบ</button>
-      </div>
-    </div>
-    ${ meta1 ? `<div class="item-meta">${meta1}</div>`:'' }
-    ${ meta2 ? `<div class="item-meta">${meta2}</div>`:'' }
-    ${ plan ? `<div class="item-meta">${plan}</div>`:'' }
-    ${ r.details ? `<div>${r.details}</div>`:'' }
-    ${ drive }
-  </div>`;
+        <div class="item">
+          <div class="item-head">
+            <div><strong>${r.title||'-'}</strong></div>
+            <div class="item-meta">${formatThaiDT(r.event_time)} ${statusPill(r.status)}</div>
+          </div>
+          ${ meta1 ? `<div class="item-meta">${meta1}</div>`:'' }
+          ${ meta2 ? `<div class="item-meta">${meta2}</div>`:'' }
+          ${ plan ? `<div class="item-meta">${plan}</div>`:'' }
+          ${ r.details ? `<div>${r.details}</div>`:'' }
+          ${ drive }
+          ${ controls }
+        </div>`;
       wrap.insertAdjacentHTML('beforeend', html);
-      if(drive){ await new Promise(res=>setTimeout(res,0)); } // ให้ iframe วาดก่อนแถวถัดไป
+      if(drive){ await new Promise(res=>setTimeout(res,0)); }
     }
     msg.textContent = `แสดง ${data.length} รายการ`;
   }
@@ -636,15 +653,7 @@ createClientFromStorage();
       const row = document.createElement('div'); row.className='plan-row';
       const label = document.createElement('div'); label.className='plan-label';
       const comp = r.company_name? `บริษัท: ${r.company_name}`:''; const doc = r.document_name? `เอกสาร: ${r.document_name}`:'';
-      label.innerHTML = `
-  <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
-    <div>
-      <strong>${r.title||'-'}</strong>
-      <div class="hint">${[comp,doc].filter(Boolean).join(' · ')||'—'}</div>
-    </div>
-    <button class="btn danger" onclick="appDelete('${r.id}')">ลบ</button>
-  </div>
-`;
+      label.innerHTML = `<strong>${r.title||'-'}</strong><div class="hint">${[comp,doc].filter(Boolean).join(' · ')||'—'}</div>`;
 
       const canvas = document.createElement('div'); canvas.className='plan-canvas';
       const sT = r.start_date ? new Date(r.start_date).getTime() : (r.event_time? new Date(r.event_time).getTime():minT);
@@ -696,17 +705,33 @@ createClientFromStorage();
     const blob = new Blob([rows],{type:'text/csv;charset=utf-8;'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'timeline_export.csv'; a.click();
   });
 
+  // ===== Health check =====
+  document.getElementById('btnHealth').addEventListener('click', async ()=>{
+    if(!supabaseClient){ alert('ยังไม่ได้สร้าง Supabase client'); return; }
+    try{
+      const { data, error } = await supabaseClient.from('timeline_entries').select('id').limit(1);
+      if(error){
+        console.error(error);
+        alert('ต่อ Supabase ได้ แต่ query error: ' + error.message);
+      }else{
+        alert('เชื่อมต่อ Supabase สำเร็จ ✓ (อ่านได้ ' + (data?.length||0) + ' แถว)');
+      }
+    }catch(e){
+      console.error(e);
+      alert('เชื่อมต่อ Supabase ไม่ได้: ' + (e.message||e));
+    }
+  });
+
   // ===== Default now =====
   (function presetNow(){
     const now = new Date(); now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
     const el=document.getElementById('eventTime'); if(el) el.value = now.toISOString().slice(0,16);
   })();
 </script>
-  <!-- ==== EASY MODE ADD-ON (วางก่อน </body>) ==== -->
+
+<!-- ==== EASY MODE ADD-ON (วางก่อน </body>) ==== -->
 <style>
-  /* ปรับสเกลองค์รวมด้วยตัวแปร --scale */
   html{ font-size: calc(16px * var(--scale, 1)); }
-  /* โหมดดูง่าย: เพิ่มพื้นที่และขนาดคลิก */
   body.easy-mode .item{ padding:20px }
   body.easy-mode input, body.easy-mode select, body.easy-mode textarea, body.easy-mode .btn{
     font-size:1.1rem; padding:14px 16px;
@@ -715,7 +740,6 @@ createClientFromStorage();
   body.easy-mode label{ font-size:1rem }
   body.easy-mode .pill{ font-size:1rem; padding:6px 10px }
 
-  /* คอนทราสต์สูง */
   body.hc-mode{ color:#fff; background:#000 }
   body.hc-mode .card{ background:#000; border-color:#fff }
   body.hc-mode input, body.hc-mode select, body.hc-mode textarea{ background:#000; color:#fff; border-color:#fff }
@@ -727,7 +751,6 @@ createClientFromStorage();
 
 <script>
 (function(){
-  // ===== แทรกปุ่มควบคุมไว้ที่ header แบบอัตโนมัติ =====
   const header = document.querySelector('header');
   if(header){
     const controls = document.createElement('div');
@@ -744,13 +767,11 @@ createClientFromStorage();
     header.appendChild(controls);
   }
 
-  // ===== จำค่าโหมดในเครื่อง =====
   let scale = parseFloat(localStorage.getItem('UI_SCALE') || '1') || 1;
   document.documentElement.style.setProperty('--scale', scale);
   if(localStorage.getItem('EASY_MODE')) document.body.classList.add('easy-mode');
   if(localStorage.getItem('HC_MODE'))   document.body.classList.add('hc-mode');
 
-  // ===== ปุ่มกดโหมดต่าง ๆ =====
   const btnEasy = document.getElementById('btnEasy');
   const btnHC   = document.getElementById('btnHC');
   const Aminus  = document.getElementById('Aminus');
@@ -775,7 +796,6 @@ createClientFromStorage();
     localStorage.setItem('UI_SCALE', scale);
   });
 
-  // ===== ปรับวันที่ให้อ่านสบายตาเมื่ออยู่ในโหมดดูง่าย =====
   const months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
   window.formatThaiDT = function(dtStr){
     const d = new Date(dtStr); if(isNaN(d)) return '';
@@ -790,7 +810,6 @@ createClientFromStorage();
     return `${String(day).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${year} ${hh}:${mm}`;
   };
 
-  // ===== แทนที่ป้ายสถานะให้มีอีโมจิและคำไทยชัด ๆ =====
   window.statusPill = function(status){
     const mapCls = {done:'status-done', doing:'status-doing', blocked:'status-blocked', pending:'status-pending'};
     const mapTxt = {done:'เสร็จแล้ว', doing:'กำลังทำ', blocked:'ติดปัญหา', pending:'รอดำเนินการ'};
@@ -801,19 +820,18 @@ createClientFromStorage();
     return `<span class="pill ${mapCls[status]||'status-doing'}">${showEmoji ? (em+' '+label) : label}</span>`;
   };
 })();
-  // ===== Test call Edge Function for weekly reminder =====
-document.getElementById('btnTestWeekly')?.addEventListener('click', async ()=>{
-  // !!! แทนที่ YOUR-PROJECT-REF ให้ตรงกับโปรเจ็กต์คุณ !!!
-  const url = "https://YOUR-PROJECT-REF.functions.supabase.co/weekly-line-reminder";
-  try{
-    const res = await fetch(url, { method: 'GET' });
-    const out = await res.json().catch(()=> ({}));
-    alert('เรียกฟังก์ชันแล้ว: ' + JSON.stringify(out));
-  }catch(e){
-    alert('เรียกไม่สำเร็จ: ' + (e.message||e));
-  }
-});
 
+  // ===== Test call Edge Function for weekly reminder =====
+  document.getElementById('btnTestWeekly')?.addEventListener('click', async ()=>{
+    const url = "https://YOUR-PROJECT-REF.functions.supabase.co/weekly-line-reminder";
+    try{
+      const res = await fetch(url, { method: 'GET' });
+      const out = await res.json().catch(()=> ({}));
+      alert('เรียกฟังก์ชันแล้ว: ' + JSON.stringify(out));
+    }catch(e){
+      alert('เรียกไม่สำเร็จ: ' + (e.message||e));
+    }
+  });
 </script>
 <!-- ==== /EASY MODE ADD-ON ==== -->
 
