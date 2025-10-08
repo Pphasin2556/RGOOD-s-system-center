@@ -3,266 +3,250 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>สรุปงาน — วันนี้ / สัปดาห์นี้ / ทีมนี้</title>
+<title>Summary — วันนี้ / เหลืองาน</title>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  :root{
-    --bg:#0f172a; --card:#111827; --ink:#e5e7eb; --muted:#9ca3af; --border:#1f2937; --accent:#22d3ee;
-    --ok:#10b981; --warn:#f59e0b; --err:#ef4444;
-  }
+  :root{ --bg:#0f172a; --card:#111827; --ink:#e5e7eb; --muted:#9ca3af; --border:#1f2937; --accent:#22d3ee; --ok:#10b981; --warn:#f59e0b; --err:#ef4444; }
   *{box-sizing:border-box}
   body{margin:0; background:linear-gradient(180deg,#0b1224,#0f172a); color:var(--ink); font-family:'Prompt',system-ui;}
-  .wrap{max-width:1100px; margin:20px auto; padding:0 14px}
-  header{display:flex; align-items:center; justify-content:space-between; margin-bottom:14px}
-  h1{font-size:22px; margin:0}
-  .card{background:#0b1220; border:1px solid var(--border); border-radius:14px; padding:14px}
+  .wrap{max-width:1200px; margin:20px auto; padding:0 16px}
+  .card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:16px}
+  h1{font-size:22px; margin:0 0 10px}
   .row{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
-  .btn{background:#0b1220; border:1px solid var(--border); color:var(--ink); padding:8px 12px; border-radius:10px; cursor:pointer}
+  .btn{background:#0b1220; border:1px solid var(--border); color:var(--ink); padding:10px 14px; border-radius:10px; cursor:pointer}
   .btn:hover{border-color:#334155}
   .btn.primary{background:var(--accent); color:#05202b; border-color:transparent; font-weight:700}
-  .btn.danger{ border-color: var(--err); color: var(--err); }
-  .btn.danger:hover{ background: rgba(239,68,68,.08); }
-  input, select, textarea{background:#0b1220; color:var(--ink); border:1px solid var(--border); border-radius:10px; padding:8px 10px}
   .grid{display:grid; gap:12px}
   .two{grid-template-columns:1fr 1fr}
-  .three{grid-template-columns:1fr 1fr 1fr}
-  .stat{display:grid; gap:4px; padding:12px; border:1px solid var(--border); border-radius:12px}
-  .stat .n{font-size:24px; font-weight:700}
-  .stat.ok{background:rgba(16,185,129,.08)}
-  .stat.warn{background:rgba(245,158,11,.08)}
-  .stat.err{background:rgba(239,68,68,.08)}
-  .list{display:grid; gap:10px}
-  .item{display:grid; gap:8px; padding:12px; border:1px solid var(--border); border-radius:12px; background:#0b1220}
-  .item-head{display:flex; justify-content:space-between; gap:12px}
-  .meta{font-size:12px; color:var(--muted)}
-  .hint{font-size:12px; color:var(--muted)}
+  .kpi{display:grid; grid-template-columns:repeat(5,1fr); gap:10px}
+  .k{background:#0b1220; border:1px solid var(--border); border-radius:12px; padding:12px; text-align:center}
+  .k .big{font-size:28px; font-weight:700}
+  .list{display:grid; gap:8px; margin-top:10px}
+  .item{border:1px solid var(--border); background:#0b1220; border-radius:10px; padding:10px}
+  .muted{color:var(--muted); font-size:12px}
+  @media (max-width:900px){ .kpi{grid-template-columns:repeat(2,1fr)} }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header>
-    <h1>สรุปงาน</h1>
-    <div class="row">
-      <a class="btn" href="index.html" target="_top">⬅ กลับหน้า Timeline</a>
-    </div>
-  </header>
-
-  <!-- Controls -->
-  <div class="card" style="margin-bottom:12px">
-    <div class="row" style="justify-content:space-between">
-      <div class="row">
-        <button class="btn" id="quickToday">วันนี้</button>
-        <button class="btn" id="quickWeek">สัปดาห์นี้</button>
-        <button class="btn" id="quickTeam">ทีมนี้</button>
-        <select id="statusFilter">
-          <option value="">ทุกสถานะ</option>
-          <option value="blocked">เฉพาะ: ติดปัญหา</option>
-          <option value="doing">เฉพาะ: กำลังทำ</option>
-          <option value="pending">เฉพาะ: รอดำเนินการ</option>
-          <option value="done">เฉพาะ: เสร็จแล้ว</option>
-        </select>
-        <input id="deptFilter" placeholder="กรอง: แผนก (ทีม)">
+  <div class="card">
+    <div class="row" style="justify-content:space-between; align-items:flex-start">
+      <div>
+        <h1>สรุป “วันนี้”</h1>
+        <div class="muted" id="todayLabel">—</div>
       </div>
-      <div id="whoami" class="hint"></div>
+      <div class="row">
+        <button class="btn" id="btnRefresh">รีเฟรช</button>
+        <button class="btn" id="btnCopy">คัดลอกสรุปวันนี้</button>
+        <button class="btn" id="btnDownloadTxt">ดาวน์โหลด TXT</button>
+        <button class="btn" id="btnDownloadCsv">ดาวน์โหลด CSV</button>
+      </div>
+    </div>
+
+    <div class="kpi" style="margin-top:12px">
+      <div class="k">
+        <div class="muted">ทั้งหมด</div>
+        <div class="big" id="kTotal">0</div>
+      </div>
+      <div class="k">
+        <div class="muted">เสร็จแล้ว</div>
+        <div class="big" id="kDone">0</div>
+      </div>
+      <div class="k">
+        <div class="muted">กำลังทำ</div>
+        <div class="big" id="kDoing">0</div>
+      </div>
+      <div class="k">
+        <div class="muted">รอดำเนินการ</div>
+        <div class="big" id="kPending">0</div>
+      </div>
+      <div class="k">
+        <div class="muted">ติดปัญหา</div>
+        <div class="big" id="kBlocked">0</div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:10px">
+      <div class="card" style="flex:1; background:#0b1220">
+        <div class="row" style="justify-content:space-between; align-items:center">
+          <strong>รายการที่ “ยังไม่เสร็จ” วันนี้</strong>
+          <div class="muted" id="leftCount">เหลือ 0 งาน</div>
+        </div>
+        <div class="list" id="leftList" style="margin-top:8px"></div>
+      </div>
     </div>
   </div>
-
-  <!-- Stats -->
-  <div class="grid three" style="margin-bottom:12px">
-    <div class="stat err">
-      <div class="n" id="statBlocked">0</div>
-      <div class="hint">ติดปัญหา</div>
-    </div>
-    <div class="stat warn">
-      <div class="n" id="statWip">0</div>
-      <div class="hint">กำลังทำ / รอดำเนินการ</div>
-    </div>
-    <div class="stat ok">
-      <div class="n" id="statDone">0</div>
-      <div class="hint">เสร็จแล้ว (ในช่วงที่เลือก)</div>
-    </div>
-  </div>
-
-  <!-- Lists -->
-  <div class="grid two">
-    <div class="card">
-      <h3 style="margin-top:0">ติดปัญหา</h3>
-      <div class="list" id="listBlocked"></div>
-    </div>
-    <div class="card">
-      <h3 style="margin-top:0">กำลังทำ / รอดำเนินการ</h3>
-      <div class="list" id="listWip"></div>
-    </div>
-  </div>
-
-  <div class="card" style="margin-top:12px">
-    <h3 style="margin-top:0">เสร็จแล้ว</h3>
-    <div class="list" id="listDone"></div>
-  </div>
-
-  <div id="msg" class="hint" style="margin-top:10px"></div>
 </div>
 
 <script>
-  // ==== Utils (วันที่แบบไทย) ====
-  function formatThaiDT(dtStr){
-    const d = new Date(dtStr); if(isNaN(d)) return '';
-    const dd = String(d.getDate()).padStart(2,'0');
-    const mm = String(d.getMonth()+1).padStart(2,'0');
-    const yy = d.getFullYear()+543;
-    const hh = String(d.getHours()).padStart(2,'0');
-    const mi = String(d.getMinutes()).padStart(2,'0');
-    return `${dd}/${mm}/${yy} ${hh}:${mi}`;
-  }
-  function formatThaiD(dStr){
-    const d = new Date(dStr); if(isNaN(d)) return '';
-    const dd = String(d.getDate()).padStart(2,'0');
-    const mm = String(d.getMonth()+1).padStart(2,'0');
+  // --- Supabase client (ฝังค่าคงที่ + รับ session จาก index) ---
+  let supabaseClient = null;
+  const SUPABASE_URL = "https://cypsbggunfkgypcnydar.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5cHNiZ2d1bmZrZ3lwY255ZGFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4MzAxMzYsImV4cCI6MjA3NTQwNjEzNn0.xAGjPMyixrDLHXXsek4UMcLNjCV2vLscQAD4OaoHy4k";
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // state cache
+  let todayRows = []; // เก็บรายการของวันนี้ไว้ให้ปุ่มคัดลอก/ดาวน์โหลดใช้
+
+  function pad(n){ return String(n).padStart(2, '0'); }
+  function thaiDateLabel(d){
+    const dd = pad(d.getDate());
+    const mm = pad(d.getMonth()+1);
     const yy = d.getFullYear()+543;
     return `${dd}/${mm}/${yy}`;
   }
-  function startOfToday(){ const d=new Date(); d.setHours(0,0,0,0); return d; }
-  function endOfToday(){ const d=new Date(); d.setHours(23,59,59,999); return d; }
-  function startOfWeek(){ // จันทร์เป็นวันแรก
-    const d=new Date(); const day=(d.getDay()+6)%7; d.setHours(0,0,0,0); d.setDate(d.getDate()-day); return d;
+  function formatThaiDT(dtStr){
+    const d = new Date(dtStr); if(isNaN(d)) return '-';
+    return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
-  function endOfWeek(){ const s=startOfWeek(); const e=new Date(s); e.setDate(s.getDate()+6); e.setHours(23,59,59,999); return e; }
 
-  // ==== Supabase client (ใช้ค่าคงที่เดียวกับ index.html) ====
-  const SUPABASE_URL = "https://cypsbggunfkgypcnydar.supabase.co";
-  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5cHNiZ2d1bmZrZ3lwY255ZGFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4MzAxMzYsImV4cCI6MjA3NTQwNjEzNn0.xAGjPMyixrDLHXXsek4UMcLNjCV2vLscQAD4OaoHy4k";
-  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  function startEndOfToday(){
+    const s = new Date(); s.setHours(0,0,0,0);
+    const e = new Date(); e.setHours(23,59,59,999);
+    return { s, e };
+  }
 
-  // ==== State ====
-  let currentUserId = null;
-  let currentDept = '';
-  let range = {from: startOfToday(), to: endOfToday()};
-  let teamOnly = false;
+  async function loadToday(){
+    const { s, e } = startEndOfToday();
+    document.getElementById('todayLabel').textContent = `ช่วงข้อมูล: ${thaiDateLabel(s)} (00:00) – ${thaiDateLabel(e)} (23:59)`;
 
-  const whoami = document.getElementById('whoami');
-  const msg = document.getElementById('msg');
+    // โหลดทั้งหมดของวันนี้ แล้วค่อยนับฝั่ง client
+    const { data, error } = await supabaseClient
+      .from('timeline_entries')
+      .select('*')
+      .gte('event_time', s.toISOString())
+      .lte('event_time', e.toISOString())
+      .order('event_time', { ascending:true });
 
-  async function loadRole(){
-    const { data:{ user } } = await sb.auth.getUser();
-    if(!user){ whoami.textContent = 'ยังไม่ได้ล็อกอิน — โปรดกลับไปล็อกอินที่หน้า Timeline'; return false; }
-    currentUserId = user.id;
-    let dept = '';
-    try{
-      const { data, error } = await sb.from('profiles').select('dept, display_name, role').eq('id', user.id).single();
-      if(!error && data){
-        dept = data.dept || '';
-        whoami.textContent = `คุณ: ${user.email} — ทีม: ${dept||'-'}`;
-      }else{
-        whoami.textContent = `คุณ: ${user.email}`;
+    if(error){ console.error(error); alert('โหลดสรุปวันนี้ไม่สำเร็จ: '+error.message); return; }
+    todayRows = data || [];
+    renderToday(todayRows);
+  }
+
+  function renderToday(rows){
+    const total = rows.length;
+    const done = rows.filter(x=>x.status==='done').length;
+    const doing = rows.filter(x=>x.status==='doing').length;
+    const pending = rows.filter(x=>x.status==='pending').length;
+    const blocked = rows.filter(x=>x.status==='blocked').length;
+    const left = total - done;
+
+    document.getElementById('kTotal').textContent   = total;
+    document.getElementById('kDone').textContent    = done;
+    document.getElementById('kDoing').textContent   = doing;
+    document.getElementById('kPending').textContent = pending;
+    document.getElementById('kBlocked').textContent = blocked;
+
+    const leftList = rows.filter(x=>x.status!=='done');
+    document.getElementById('leftCount').textContent = `เหลือ ${left} งาน`;
+
+    const box = document.getElementById('leftList'); box.innerHTML='';
+    if(leftList.length===0){
+      box.innerHTML = `<div class="muted">— ไม่มีงานค้างวันนี้ —</div>`;
+    }else{
+      for(const r of leftList){
+        const meta = [
+          r.assignee ? `ผู้รับผิดชอบ: ${r.assignee}`: null,
+          r.dept ? `แผนก: ${r.dept}`: null,
+          r.company_name ? `บริษัท: ${r.company_name}`: null
+        ].filter(Boolean).join(' · ');
+        const el = document.createElement('div');
+        el.className='item';
+        el.innerHTML = `
+          <div><strong>[${r.status}]</strong> ${r.title||'-'}</div>
+          <div class="muted">${formatThaiDT(r.event_time)} · ${meta||'—'}</div>
+          ${r.details ? `<div style="margin-top:6px">${r.details}</div>`:''}
+        `;
+        box.appendChild(el);
       }
-    }catch(_) {}
-    currentDept = dept;
-    return true;
+    }
   }
 
-  // ==== CRUD ====
-  async function updateStatus(id, newStatus){
-    const { error } = await sb.from('timeline_entries').update({status:newStatus}).eq('id', id);
-    if(error) alert('อัปเดตไม่ได้: '+error.message);
-  }
-  async function editItem(id){
-    // ดึงล่าสุดก่อน
-    const { data, error } = await sb.from('timeline_entries').select('title, details').eq('id', id).single();
-    if(error){ alert('อ่านรายการไม่ได้: '+error.message); return; }
-    const nt = prompt('หัวข้อใหม่:', data.title || '');
-    if(nt===null) return;
-    const nd = prompt('รายละเอียดใหม่:', data.details || '');
-    if(nd===null) return;
-    const { error: e2 } = await sb.from('timeline_entries').update({ title: nt.trim(), details: (nd||'').trim() }).eq('id', id);
-    if(e2) alert('แก้ไม่ได้: '+e2.message);
-  }
-  async function deleteItem(id){
-    if(!confirm('ลบรายการนี้?')) return;
-    const { error } = await sb.from('timeline_entries').delete().eq('id', id);
-    if(error) alert('ลบไม่ได้: '+error.message);
-  }
+  // --- ปุ่มคัดลอก / ดาวน์โหลด ---
+  function buildTodayText(){
+    const { s } = startEndOfToday();
+    const total = todayRows.length;
+    const done = todayRows.filter(x=>x.status==='done').length;
+    const doing = todayRows.filter(x=>x.status==='doing').length;
+    const pending = todayRows.filter(x=>x.status==='pending').length;
+    const blocked = todayRows.filter(x=>x.status==='blocked').length;
+    const left = total - done;
+    const leftList = todayRows.filter(x=>x.status!=='done');
 
-  // ==== Query & Render ====
-  function makeItemHTML(r){
-    const meta1 = [r.company_name?`บริษัท: ${r.company_name}`:null, r.document_name?`เอกสาร: ${r.document_name}`:null].filter(Boolean).join(' · ');
-    const meta2 = [r.assignee?`ผู้รับผิดชอบ: ${r.assignee}`:null, r.dept?`แผนก: ${r.dept}`:null, r.project?`โครงการ: ${r.project}`:null].filter(Boolean).join(' · ');
-    return `
-      <div class="item">
-        <div class="item-head">
-          <div><strong>${r.title||'-'}</strong></div>
-          <div class="meta">${formatThaiDT(r.event_time)} · สถานะ: ${r.status}</div>
-        </div>
-        ${ meta1 ? `<div class="meta">${meta1}</div>`:'' }
-        ${ meta2 ? `<div class="meta">${meta2}</div>`:'' }
-        ${ r.details ? `<div>${r.details}</div>`:'' }
-        <div class="row" style="margin-top:6px">
-          <select id="st-${r.id}">
-            <option value="doing" ${r.status==='doing'?'selected':''}>กำลังทำ</option>
-            <option value="done" ${r.status==='done'?'selected':''}>เสร็จแล้ว</option>
-            <option value="pending" ${r.status==='pending'?'selected':''}>รอดำเนินการ</option>
-            <option value="blocked" ${r.status==='blocked'?'selected':''}>ติดปัญหา</option>
-          </select>
-          <button class="btn" onclick="(async()=>{await updateStatus('${r.id}', document.getElementById('st-${r.id}').value); await refresh();})()">บันทึกสถานะ</button>
-          <button class="btn" onclick="(async()=>{await editItem('${r.id}'); await refresh();})()">แก้ไข</button>
-          <button class="btn danger" onclick="(async()=>{await deleteItem('${r.id}'); await refresh();})()">ลบ</button>
-        </div>
-      </div>
-    `;
+    let t = `สรุปงานวันนี้ (${thaiDateLabel(s)})\n`;
+    t += `ทั้งหมด: ${total}\nเสร็จแล้ว: ${done}\nกำลังทำ: ${doing}\nรอดำเนินการ: ${pending}\nติดปัญหา: ${blocked}\nเหลือ: ${left}\n`;
+    if(leftList.length){
+      t += `\nรายการที่ยังไม่เสร็จ:\n`;
+      for(const r of leftList){
+        t += `- [${formatThaiDT(r.event_time)}] ${r.title||'-'} — ${r.assignee||'—'} (${r.status})\n`;
+      }
+    }
+    return t;
   }
 
-  async function refresh(){
-    const listBlocked = document.getElementById('listBlocked');
-    const listWip = document.getElementById('listWip');
-    const listDone = document.getElementById('listDone');
-    listBlocked.innerHTML = listWip.innerHTML = listDone.innerHTML = '';
-    msg.textContent = '';
-
-    const statusFilter = document.getElementById('statusFilter').value;
-    const deptFilter = (document.getElementById('deptFilter').value || '').trim();
-
-    let q = sb.from('timeline_entries').select('*').order('event_time',{ascending:false}).limit(500);
-    if(range.from) q = q.gte('event_time', range.from.toISOString());
-    if(range.to)   q = q.lte('event_time', range.to.toISOString());
-    if(teamOnly && currentDept) q = q.ilike('dept', `%${currentDept}%`);
-    if(deptFilter) q = q.ilike('dept', `%${deptFilter}%`);
-    if(statusFilter) q = q.eq('status', statusFilter);
-
-    const { data, error } = await q;
-    if(error){ msg.textContent = 'โหลดข้อมูลไม่ได้: ' + error.message; return; }
-
-    const blocked = (data||[]).filter(r=>r.status==='blocked');
-    const wip = (data||[]).filter(r=>r.status==='doing' || r.status==='pending');
-    const done = (data||[]).filter(r=>r.status==='done');
-
-    // stats
-    document.getElementById('statBlocked').textContent = blocked.length;
-    document.getElementById('statWip').textContent = wip.length;
-    document.getElementById('statDone').textContent = done.length;
-
-    // render
-    for(const r of blocked) listBlocked.insertAdjacentHTML('beforeend', makeItemHTML(r));
-    for(const r of wip)     listWip.insertAdjacentHTML('beforeend', makeItemHTML(r));
-    for(const r of done)    listDone.insertAdjacentHTML('beforeend', makeItemHTML(r));
-
-    if(!data?.length) msg.textContent = '— ไม่มีข้อมูลในช่วงที่เลือก —';
+  function buildCSV(){
+    const header = ['event_time','title','status','assignee','dept','project','company_name','document_name','details'];
+    const rows = todayRows.map(r=>[
+      r.event_time,
+      (r.title||'').replace(/"/g,'""'),
+      r.status||'',
+      (r.assignee||'').replace(/"/g,'""'),
+      (r.dept||'').replace(/"/g,'""'),
+      (r.project||'').replace(/"/g,'""'),
+      (r.company_name||'').replace(/"/g,'""'),
+      (r.document_name||'').replace(/"/g,'""'),
+      (r.details||'').replace(/"/g,'""'),
+    ]);
+    const csv = [header.join(',')].concat(rows.map(r=>{
+      return r.map(c => `"${c}"`).join(',');
+    })).join('\n');
+    return csv;
   }
 
-  // ==== Quick filters ====
-  document.getElementById('quickToday').onclick = ()=>{ range={from:startOfToday(), to:endOfToday()}; teamOnly=false; refresh(); };
-  document.getElementById('quickWeek').onclick  = ()=>{ range={from:startOfWeek(), to:endOfWeek()}; teamOnly=false; refresh(); };
-  document.getElementById('quickTeam').onclick  = ()=>{ if(!currentDept){ alert('ยังไม่มี dept ในโปรไฟล์'); } teamOnly=true; refresh(); };
+  async function copyToday(){
+    const txt = buildTodayText();
+    await navigator.clipboard.writeText(txt);
+    alert('คัดลอกสรุปของวันนี้แล้ว ✓');
+  }
+  function downloadTxt(){
+    const blob = new Blob([buildTodayText()], {type:'text/plain;charset=utf-8;'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'summary_today.txt';
+    a.click();
+  }
+  function downloadCsv(){
+    const blob = new Blob([buildCSV()], {type:'text/csv;charset=utf-8;'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'summary_today.csv';
+    a.click();
+  }
 
-  document.getElementById('statusFilter').onchange = refresh;
-  document.getElementById('deptFilter').oninput = ()=>{ clearTimeout(window.__depTT); window.__depTT = setTimeout(refresh, 300); };
+  // --- ปุ่มกด ---
+  document.getElementById('btnRefresh').addEventListener('click', loadToday);
+  document.getElementById('btnCopy').addEventListener('click', copyToday);
+  document.getElementById('btnDownloadTxt').addEventListener('click', downloadTxt);
+  document.getElementById('btnDownloadCsv').addEventListener('click', downloadCsv);
 
-  // ==== Init ====
-  (async function init(){
-    const ok = await loadRole(); // แสดงอีเมล/ทีมบนหัว
-    // ไม่บังคับล็อกอินเพื่อดูหน้า (แต่จะ CRUD ไม่ได้หากไม่ได้ auth)
-    range = {from:startOfToday(), to:endOfToday()};
-    await refresh();
-  })();
+  // --- รับ session + คำสั่ง refresh จาก index.html ---
+  window.addEventListener('message', async (e)=>{
+    const d = e.data || {};
+    if(d.type === 'supabaseSession' && d.access_token && d.refresh_token){
+      try{
+        await supabaseClient.auth.setSession({ 
+          access_token: d.access_token, 
+          refresh_token: d.refresh_token 
+        });
+        await loadToday();
+      }catch(err){ console.warn('setSession failed', err); }
+    }
+    if(d.type === 'refresh'){ loadToday(); }
+  });
+
+  // โหลดแบบ best-effort ถ้ายังไม่ได้รับ session ก็จะโหลดอีกครั้งเมื่อ index ส่งมา
+  loadToday();
 </script>
 </body>
 </html>
